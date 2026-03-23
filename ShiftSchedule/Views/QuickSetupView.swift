@@ -6,10 +6,10 @@ struct QuickSetupView: View {
 
     @State private var startDate = Date()
     @State private var cyclePosition: CyclePosition = .fuzhongDay1
-    @State private var fuzhongStart = Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date()
-    @State private var fuzhongEnd = Calendar.current.date(from: DateComponents(hour: 20, minute: 0)) ?? Date()
-    @State private var kuguanStart = Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date()
-    @State private var kuguanEnd = Calendar.current.date(from: DateComponents(hour: 20, minute: 0)) ?? Date()
+    @State private var fuzhongStart = Calendar.current.date(from: DateComponents(hour: 8, minute: 30)) ?? Date()
+    @State private var fuzhongEnd = Calendar.current.date(from: DateComponents(hour: 21, minute: 0)) ?? Date()
+    @State private var kuguanStart = Calendar.current.date(from: DateComponents(hour: 8, minute: 30)) ?? Date()
+    @State private var kuguanEnd = Calendar.current.date(from: DateComponents(hour: 21, minute: 0)) ?? Date()
     @State private var showConfirm = false
 
     private let timeFormatter: DateFormatter = {
@@ -58,12 +58,12 @@ struct QuickSetupView: View {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.blue)
                 Text("使用说明")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 16, weight: .bold))
             }
 
             Text("选择一个你确定的日期，并指定该日是复重还是库管的第几天。系统将按照「复重→复重→休息→休息→库管→库管→休息→休息」的规律自动排列全年班次。")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
+                .font(.system(size: 14))
+                .foregroundColor(Color(white: 0.4))
                 .lineSpacing(4)
         }
         .padding(16)
@@ -77,8 +77,8 @@ struct QuickSetupView: View {
     private var datePickerCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("选择已知日期", systemImage: "calendar.badge.clock")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
 
             DatePicker("日期", selection: $startDate, displayedComponents: .date)
                 .datePickerStyle(.graphical)
@@ -94,8 +94,8 @@ struct QuickSetupView: View {
     private var positionCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("该日是什么班", systemImage: "person.badge.clock")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(CyclePosition.allCases) { pos in
@@ -133,26 +133,26 @@ struct QuickSetupView: View {
                     .fill(ShiftType.fuzhong.color)
                     .frame(width: 10, height: 10)
                 Text("复重岗位时间")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(white: 0.3))
             }
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("上班")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(white: 0.4))
                     DatePicker("", selection: $fuzhongStart, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                 }
                 Spacer()
                 Image(systemName: "arrow.right")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(white: 0.4))
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("下班")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(white: 0.4))
                     DatePicker("", selection: $fuzhongEnd, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                 }
@@ -171,26 +171,26 @@ struct QuickSetupView: View {
                     .fill(ShiftType.kuguang.color)
                     .frame(width: 10, height: 10)
                 Text("库管岗位时间")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(white: 0.3))
             }
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("上班")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(white: 0.4))
                     DatePicker("", selection: $kuguanStart, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                 }
                 Spacer()
                 Image(systemName: "arrow.right")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(white: 0.4))
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("下班")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(white: 0.4))
                     DatePicker("", selection: $kuguanEnd, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                 }
@@ -205,8 +205,8 @@ struct QuickSetupView: View {
     private var previewCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("排班预览（前16天）", systemImage: "eye")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
 
             let preview = generatePreview()
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8), spacing: 4) {

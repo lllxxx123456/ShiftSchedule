@@ -36,8 +36,8 @@ struct SettingsView: View {
     private var scheduleSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("排班管理")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
                 .padding(.leading, 4)
 
             VStack(spacing: 0) {
@@ -60,11 +60,11 @@ struct SettingsView: View {
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("快捷排班")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.primary)
                             Text("一键生成上二休二规律排班")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
+                                .font(.system(size: 13))
+                                .foregroundColor(Color(white: 0.45))
                         }
 
                         Spacer()
@@ -85,9 +85,9 @@ struct SettingsView: View {
     // MARK: - Stats Section
     private var statsSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("排班统计")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.secondary)
+            Text("排班统计（本月）")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
                 .padding(.leading, 4)
 
             let stats = calculateStats()
@@ -104,8 +104,8 @@ struct SettingsView: View {
     private var dangerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("数据管理")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
                 .padding(.leading, 4)
 
             Button(action: { showClearAlert = true }) {
@@ -120,7 +120,7 @@ struct SettingsView: View {
                     }
 
                     Text("清除所有排班")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.red)
 
                     Spacer()
@@ -137,8 +137,8 @@ struct SettingsView: View {
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("关于")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
                 .padding(.leading, 4)
 
             VStack(spacing: 0) {
@@ -165,13 +165,14 @@ struct SettingsView: View {
             }
 
             Text(title)
-                .font(.system(size: 15))
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.primary)
 
             Spacer()
 
             Text(value)
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
+                .font(.system(size: 15))
+                .foregroundColor(Color(white: 0.4))
         }
         .padding(14)
     }
@@ -225,12 +226,12 @@ struct StatCard: View {
                 .foregroundColor(color)
 
             Text("\(count)")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(.primary)
 
             Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.secondary)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color(white: 0.35))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)

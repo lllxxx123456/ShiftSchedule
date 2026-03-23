@@ -6,8 +6,8 @@ struct DayDetailView: View {
     @Environment(\.dismiss) var dismiss
 
     @State private var shiftType: ShiftType = .rest
-    @State private var startTime: Date = Calendar.current.date(from: DateComponents(hour: 8, minute: 0)) ?? Date()
-    @State private var endTime: Date = Calendar.current.date(from: DateComponents(hour: 20, minute: 0)) ?? Date()
+    @State private var startTime: Date = Calendar.current.date(from: DateComponents(hour: 8, minute: 30)) ?? Date()
+    @State private var endTime: Date = Calendar.current.date(from: DateComponents(hour: 21, minute: 0)) ?? Date()
     @State private var location: String = ""
     @State private var notes: String = ""
 

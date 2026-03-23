@@ -139,12 +139,14 @@ class ScheduleViewModel: ObservableObject {
         dataManager.saveShift(shift)
         loadShifts()
         WidgetCenter.shared.reloadAllTimelines()
+        NotificationManager.shared.scheduleShiftNotifications(shifts: shifts)
     }
 
     func deleteShift(for date: Date) {
         dataManager.deleteShift(for: dateString(from: date))
         loadShifts()
         WidgetCenter.shared.reloadAllTimelines()
+        NotificationManager.shared.scheduleShiftNotifications(shifts: shifts)
     }
 
     func generatePattern(startDate: Date, cyclePosition: CyclePosition,
@@ -169,12 +171,14 @@ class ScheduleViewModel: ObservableObject {
         dataManager.savePattern(pattern)
         loadShifts()
         WidgetCenter.shared.reloadAllTimelines()
+        NotificationManager.shared.scheduleShiftNotifications(shifts: shifts)
     }
 
     func clearAllShifts() {
         dataManager.saveShifts([:])
         loadShifts()
         WidgetCenter.shared.reloadAllTimelines()
+        NotificationManager.shared.scheduleShiftNotifications(shifts: [:])
     }
 
     // MARK: - Week Data for Widget

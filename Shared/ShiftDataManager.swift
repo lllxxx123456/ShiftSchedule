@@ -7,8 +7,8 @@ class ShiftDataManager {
     private let shiftsKey = "savedShifts"
     private let patternKey = "schedulePattern"
 
-    private var userDefaults: UserDefaults? {
-        UserDefaults(suiteName: suiteName)
+    private var userDefaults: UserDefaults {
+        UserDefaults(suiteName: suiteName) ?? UserDefaults.standard
     }
 
     private let dateFormatter: DateFormatter = {
@@ -29,13 +29,16 @@ class ShiftDataManager {
     // MARK: - Shifts CRUD
     func saveShifts(_ shifts: [String: DayShift]) {
         if let data = try? JSONEncoder().encode(shifts) {
-            userDefaults?.set(data, forKey: shiftsKey)
-            userDefaults?.synchronize()
+            userDefaults.set(data, forKey: shiftsKey)
+            userDefaults.synchronize()
+            UserDefaults.standard.set(data, forKey: shiftsKey)
+            UserDefaults.standard.synchronize()
         }
     }
 
     func loadShifts() -> [String: DayShift] {
-        guard let data = userDefaults?.data(forKey: shiftsKey) else { return [:] }
+        let data = userDefaults.data(forKey: shiftsKey) ?? UserDefaults.standard.data(forKey: shiftsKey)
+        guard let data = data else { return [:] }
         return (try? JSONDecoder().decode([String: DayShift].self, from: data)) ?? [:]
     }
 
@@ -58,13 +61,16 @@ class ShiftDataManager {
     // MARK: - Pattern
     func savePattern(_ pattern: SchedulePattern) {
         if let data = try? JSONEncoder().encode(pattern) {
-            userDefaults?.set(data, forKey: patternKey)
-            userDefaults?.synchronize()
+            userDefaults.set(data, forKey: patternKey)
+            userDefaults.synchronize()
+            UserDefaults.standard.set(data, forKey: patternKey)
+            UserDefaults.standard.synchronize()
         }
     }
 
     func loadPattern() -> SchedulePattern? {
-        guard let data = userDefaults?.data(forKey: patternKey) else { return nil }
+        let data = userDefaults.data(forKey: patternKey) ?? UserDefaults.standard.data(forKey: patternKey)
+        guard let data = data else { return nil }
         return try? JSONDecoder().decode(SchedulePattern.self, from: data)
     }
 
