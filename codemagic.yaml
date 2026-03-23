@@ -1,0 +1,43 @@
+workflows:
+  ios-build:
+    name: iOS Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: 15.4
+    scripts:
+      - name: Install XcodeGen
+        script: |
+          brew install xcodegen
+      - name: Generate Xcode project
+        script: |
+          xcodegen generate
+      - name: Build unsigned app
+        script: |
+          xcodebuild \
+            -project ShiftSchedule.xcodeproj \
+            -scheme ShiftSchedule \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ENABLE_BITCODE=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+      - name: Package IPA
+        script: |
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: .app not found"
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r ShiftSchedule-unsigned.ipa Payload
+    artifacts:
+      - "*.ipa"
+      - build/Build/Products/**/*.app
