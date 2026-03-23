@@ -4,14 +4,14 @@ class ShiftDataManager {
     static let shared = ShiftDataManager()
 
     private let suiteName = "group.com.myshift.schedule"
-    private let shiftsKey = "savedShifts"
-    private let patternKey = "schedulePattern"
+    private let schedulesKey = "savedSchedules"
+    private let widgetShiftsKey = "widgetShifts"
 
     private var userDefaults: UserDefaults {
         UserDefaults(suiteName: suiteName) ?? UserDefaults.standard
     }
 
-    private let dateFormatter: DateFormatter = {
+    let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "zh_CN")
@@ -26,78 +26,66 @@ class ShiftDataManager {
         dateFormatter.date(from: string)
     }
 
-    // MARK: - Shifts CRUD
-    func saveShifts(_ shifts: [String: DayShift]) {
-        if let data = try? JSONEncoder().encode(shifts) {
-            userDefaults.set(data, forKey: shiftsKey)
+    // MARK: - Schedules CRUD
+    func saveSchedules(_ schedules: [Schedule]) {
+        if let data = try? JSONEncoder().encode(schedules) {
+            userDefaults.set(data, forKey: schedulesKey)
             userDefaults.synchronize()
-            UserDefaults.standard.set(data, forKey: shiftsKey)
+            UserDefaults.standard.set(data, forKey: schedulesKey)
             UserDefaults.standard.synchronize()
+        }
+        syncWidgetData(schedules)
+    }
+
+    func loadSchedules() -> [Schedule] {
+        let data = userDefaults.data(forKey: schedulesKey) ?? UserDefaults.standard.data(forKey: schedulesKey)
+        guard let data = data else { return [] }
+        return (try? JSONDecoder().decode([Schedule].self, from: data)) ?? []
+    }
+
+    func syncWidgetData(_ schedules: [Schedule]) {
+        if let starred = schedules.first(where: { $0.isStarred }) {
+            if let data = try? JSONEncoder().encode(starred.shifts) {
+                userDefaults.set(data, forKey: widgetShiftsKey)
+                userDefaults.synchronize()
+                UserDefaults.standard.set(data, forKey: widgetShiftsKey)
+                UserDefaults.standard.synchronize()
+            }
         }
     }
 
-    func loadShifts() -> [String: DayShift] {
-        let data = userDefaults.data(forKey: shiftsKey) ?? UserDefaults.standard.data(forKey: shiftsKey)
+    func loadWidgetShifts() -> [String: DayShift] {
+        let data = userDefaults.data(forKey: widgetShiftsKey) ?? UserDefaults.standard.data(forKey: widgetShiftsKey)
         guard let data = data else { return [:] }
         return (try? JSONDecoder().decode([String: DayShift].self, from: data)) ?? [:]
     }
 
-    func getShift(for date: Date) -> DayShift? {
-        loadShifts()[dateString(from: date)]
-    }
-
-    func saveShift(_ shift: DayShift) {
-        var shifts = loadShifts()
-        shifts[shift.id] = shift
-        saveShifts(shifts)
-    }
-
-    func deleteShift(for dateString: String) {
-        var shifts = loadShifts()
-        shifts.removeValue(forKey: dateString)
-        saveShifts(shifts)
-    }
-
-    // MARK: - Pattern
-    func savePattern(_ pattern: SchedulePattern) {
-        if let data = try? JSONEncoder().encode(pattern) {
-            userDefaults.set(data, forKey: patternKey)
-            userDefaults.synchronize()
-            UserDefaults.standard.set(data, forKey: patternKey)
-            UserDefaults.standard.synchronize()
-        }
-    }
-
-    func loadPattern() -> SchedulePattern? {
-        let data = userDefaults.data(forKey: patternKey) ?? UserDefaults.standard.data(forKey: patternKey)
-        guard let data = data else { return nil }
-        return try? JSONDecoder().decode(SchedulePattern.self, from: data)
-    }
-
-    // MARK: - Generate from Pattern
-    func generateShiftsFromPattern(_ pattern: SchedulePattern, until endDate: Date) {
-        guard let start = date(from: pattern.startDate) else { return }
-        var shifts = loadShifts()
+    // MARK: - Generate Shifts from Pattern
+    func generateShifts(pattern: SchedulePattern, from startDate: Date, to endDate: Date) -> [String: DayShift] {
+        var shifts: [String: DayShift] = [:]
         let calendar = Calendar.current
         let cycleLength = pattern.cycle.count
 
-        var current = start
+        var current = startDate
         var index = 0
 
         while current <= endDate {
             let key = dateString(from: current)
             let shiftType = pattern.cycle[index % cycleLength]
 
-            var startTime: String?
-            var endTime: String?
+            var sTime: String?
+            var eTime: String?
 
             switch shiftType {
             case .fuzhong:
-                startTime = pattern.fuzhongStartTime
-                endTime = pattern.fuzhongEndTime
+                sTime = pattern.fuzhongStartTime
+                eTime = pattern.fuzhongEndTime
             case .kuguang:
-                startTime = pattern.kuguanStartTime
-                endTime = pattern.kuguanEndTime
+                sTime = pattern.kuguanStartTime
+                eTime = pattern.kuguanEndTime
+            case .work:
+                sTime = pattern.workStartTime
+                eTime = pattern.workEndTime
             case .rest:
                 break
             }
@@ -105,8 +93,8 @@ class ShiftDataManager {
             shifts[key] = DayShift(
                 id: key,
                 shiftType: shiftType,
-                startTime: startTime,
-                endTime: endTime,
+                startTime: sTime,
+                endTime: eTime,
                 location: nil,
                 notes: nil
             )
@@ -116,6 +104,6 @@ class ShiftDataManager {
             index += 1
         }
 
-        saveShifts(shifts)
+        return shifts
     }
 }

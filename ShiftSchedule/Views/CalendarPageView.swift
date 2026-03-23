@@ -4,22 +4,15 @@ struct CalendarPageView: View {
     @ObservedObject var viewModel: ScheduleViewModel
     @State private var showingQuickSetup = false
     @State private var showingDayDetail = false
+    @State private var dragOffset: CGFloat = 0
 
     private let weekdays = ["日", "一", "二", "三", "四", "五", "六"]
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.96, green: 0.95, blue: 1.0),
-                    Color(red: 0.98, green: 0.98, blue: 1.0),
-                    Color.white
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color(red: 0.96, green: 0.96, blue: 0.98)
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 headerView
@@ -49,89 +42,110 @@ struct CalendarPageView: View {
 
     // MARK: - Header
     private var headerView: some View {
-        ZStack {
+        VStack(spacing: 0) {
             LinearGradient(
                 colors: [
                     Color(red: 79/255, green: 70/255, blue: 229/255),
-                    Color(red: 129/255, green: 100/255, blue: 255/255),
-                    Color(red: 167/255, green: 139/255, blue: 250/255)
+                    Color(red: 129/255, green: 100/255, blue: 255/255)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+            .overlay(
+                VStack(spacing: 8) {
+                    HStack(alignment: .center) {
+                        Button(action: { withAnimation(.spring(response: 0.3)) { viewModel.previousMonth() } }) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 36, height: 36)
+                                .background(.white.opacity(0.15))
+                                .clipShape(Circle())
+                        }
 
-            VStack(spacing: 8) {
-                HStack(alignment: .center) {
-                    Button(action: { withAnimation(.spring(response: 0.3)) { viewModel.previousMonth() } }) {
-                        Image(systemName: "chevron.left.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.9))
+                        Spacer()
+
+                        VStack(spacing: 2) {
+                            Text(viewModel.yearString)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.85))
+                            Text(viewModel.monthString)
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+
+                        Spacer()
+
+                        Button(action: { withAnimation(.spring(response: 0.3)) { viewModel.nextMonth() } }) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 36, height: 36)
+                                .background(.white.opacity(0.15))
+                                .clipShape(Circle())
+                        }
                     }
+                    .padding(.horizontal, 20)
 
-                    Spacer()
+                    HStack(spacing: 10) {
+                        if let schedule = viewModel.activeSchedule {
+                            Text(schedule.name)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 5)
+                                .background(.white.opacity(0.2))
+                                .clipShape(Capsule())
+                        }
 
-                    VStack(spacing: 2) {
-                        Text(viewModel.yearString)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.8))
-                        Text(viewModel.monthString)
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                        Spacer()
+
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3)) { viewModel.goToToday() }
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 9))
+                                Text("今天")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
                             .foregroundStyle(.white)
-                    }
-
-                    Spacer()
-
-                    Button(action: { withAnimation(.spring(response: 0.3)) { viewModel.nextMonth() } }) {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                }
-                .padding(.horizontal, 24)
-
-                HStack(spacing: 12) {
-                    Button(action: {
-                        withAnimation(.spring(response: 0.3)) { viewModel.goToToday() }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 10))
-                            Text("今天")
-                                .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(.white.opacity(0.2))
+                            .clipShape(Capsule())
                         }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(.white.opacity(0.2))
-                        .clipShape(Capsule())
-                    }
 
-                    Spacer()
-
-                    Button(action: { showingQuickSetup = true }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "bolt.fill")
-                                .font(.system(size: 10))
-                            Text("快捷排班")
-                                .font(.system(size: 12, weight: .semibold))
+                        Button(action: { showingQuickSetup = true }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 9))
+                                Text("快捷排班")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(.white.opacity(0.2))
+                            .clipShape(Capsule())
                         }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(.white.opacity(0.2))
-                        .clipShape(Capsule())
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
-            }
-            .padding(.top, 8)
+                .padding(.top, 8)
+            )
+            .frame(height: 140)
         }
-        .frame(height: 130)
-        .clipShape(
-            UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 24, bottomTrailingRadius: 24, topTrailingRadius: 0)
+        .background(
+            LinearGradient(
+                colors: [Color(red: 79/255, green: 70/255, blue: 229/255), Color(red: 129/255, green: 100/255, blue: 255/255)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea(edges: .top)
         )
-        .shadow(color: Color(red: 79/255, green: 70/255, blue: 229/255).opacity(0.3), radius: 12, x: 0, y: 4)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .shadow(color: Color(red: 79/255, green: 70/255, blue: 229/255).opacity(0.25), radius: 10, x: 0, y: 4)
     }
 
     // MARK: - Calendar Card
@@ -141,22 +155,21 @@ struct CalendarPageView: View {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { index, day in
                     Text(day)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(index == 0 || index == 6 ? Color.red.opacity(0.6) : Color.gray)
+                        .foregroundColor(index == 0 || index == 6 ? Color.red.opacity(0.6) : Color(white: 0.4))
                         .frame(maxWidth: .infinity)
                 }
             }
             .padding(.top, 14)
             .padding(.bottom, 4)
 
-            Divider()
-                .padding(.horizontal, 8)
+            Divider().padding(.horizontal, 8)
 
             LazyVGrid(columns: columns, spacing: 4) {
                 ForEach(viewModel.daysInCurrentMonth()) { dayItem in
                     if let date = dayItem.date {
                         DayCellView(
                             date: date,
-                            shift: viewModel.shifts[viewModel.dateString(from: date)],
+                            shift: viewModel.activeShifts[viewModel.dateString(from: date)],
                             isToday: viewModel.isToday(date),
                             isWeekend: viewModel.isWeekend(date)
                         )
@@ -165,8 +178,7 @@ struct CalendarPageView: View {
                             showingDayDetail = true
                         }
                     } else {
-                        Color.clear
-                            .frame(height: 68)
+                        Color.clear.frame(height: 68)
                     }
                 }
             }
@@ -178,12 +190,30 @@ struct CalendarPageView: View {
                 .fill(.white)
                 .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 4)
         )
+        .offset(x: dragOffset)
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    dragOffset = value.translation.width * 0.4
+                }
+                .onEnded { value in
+                    let threshold: CGFloat = 50
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        if value.translation.width > threshold {
+                            viewModel.previousMonth()
+                        } else if value.translation.width < -threshold {
+                            viewModel.nextMonth()
+                        }
+                        dragOffset = 0
+                    }
+                }
+        )
     }
 
     // MARK: - Today Info Card
     private var todayInfoCard: some View {
         let today = Date()
-        let shift = viewModel.shifts[viewModel.dateString(from: today)]
+        let shift = viewModel.activeShifts[viewModel.dateString(from: today)]
 
         return VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -191,7 +221,7 @@ struct CalendarPageView: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: shift?.shiftType.gradientColors ?? [.blue, .blue.opacity(0.7)],
+                                colors: shift?.shiftType.gradientColors ?? [.gray, .gray.opacity(0.7)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -206,11 +236,11 @@ struct CalendarPageView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("今日 \(viewModel.todayDateString) \(viewModel.todayWeekdayString)")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color(white: 0.4))
 
                     Text(LunarCalendarHelper.lunarDateString(for: today))
                         .font(.system(size: 12))
-                        .foregroundColor(.secondary.opacity(0.7))
+                        .foregroundColor(Color(white: 0.55))
                 }
 
                 Spacer()
@@ -222,29 +252,26 @@ struct CalendarPageView: View {
                 } else {
                     Text("未排班")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color(white: 0.5))
                 }
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
 
             if let shift = shift {
-                Divider()
-                    .padding(.horizontal, 18)
+                Divider().padding(.horizontal, 18)
 
                 HStack(spacing: 20) {
                     if let start = shift.startTime, let end = shift.endTime {
                         Label("\(start) - \(end)", systemImage: "clock.fill")
                             .font(.system(size: 13))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(white: 0.45))
                     }
-
                     if let location = shift.location, !location.isEmpty {
                         Label(location, systemImage: "mappin.circle.fill")
                             .font(.system(size: 13))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(white: 0.45))
                     }
-
                     Spacer()
                 }
                 .padding(.horizontal, 18)

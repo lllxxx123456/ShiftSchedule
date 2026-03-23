@@ -4,12 +4,13 @@ import WidgetKit
 
 class ScheduleViewModel: ObservableObject {
     @Published var currentMonth: Date
-    @Published var shifts: [String: DayShift] = [:]
+    @Published var schedules: [Schedule] = []
+    @Published var activeScheduleId: String?
     @Published var selectedDate: Date?
 
     private let dataManager = ShiftDataManager.shared
 
-    private let calendar: Calendar = {
+    let calendar: Calendar = {
         var cal = Calendar.current
         cal.locale = Locale(identifier: "zh_CN")
         cal.firstWeekday = 1
@@ -34,15 +35,126 @@ class ScheduleViewModel: ObservableObject {
         let now = Date()
         let components = Calendar.current.dateComponents([.year, .month], from: now)
         self.currentMonth = Calendar.current.date(from: components) ?? now
-        loadShifts()
+        loadSchedules()
     }
 
-    func loadShifts() {
-        shifts = dataManager.loadShifts()
+    // MARK: - Active Schedule
+    var activeSchedule: Schedule? {
+        if let id = activeScheduleId {
+            return schedules.first(where: { $0.id == id })
+        }
+        return schedules.first
+    }
+
+    var activeShifts: [String: DayShift] {
+        activeSchedule?.shifts ?? [:]
+    }
+
+    var starredSchedule: Schedule? {
+        schedules.first(where: { $0.isStarred })
+    }
+
+    // MARK: - Data Loading
+    func loadSchedules() {
+        schedules = dataManager.loadSchedules()
+        if activeScheduleId == nil, let first = schedules.first {
+            activeScheduleId = first.id
+        }
+    }
+
+    func saveAllSchedules() {
+        dataManager.saveSchedules(schedules)
+        WidgetCenter.shared.reloadAllTimelines()
+        if let starred = starredSchedule {
+            NotificationManager.shared.scheduleShiftNotifications(shifts: starred.shifts)
+        }
     }
 
     func dateString(from date: Date) -> String {
         dateFormatter.string(from: date)
+    }
+
+    // MARK: - Schedule CRUD
+    func addSchedule(name: String, setupType: QuickSetupType, colorTag: String = "indigo") {
+        var schedule = Schedule(name: name, setupType: setupType, colorTag: colorTag)
+        if schedules.isEmpty { schedule.isStarred = true }
+        schedules.append(schedule)
+        activeScheduleId = schedule.id
+        saveAllSchedules()
+    }
+
+    func deleteSchedule(id: String) {
+        schedules.removeAll(where: { $0.id == id })
+        if activeScheduleId == id { activeScheduleId = schedules.first?.id }
+        saveAllSchedules()
+    }
+
+    func renameSchedule(id: String, name: String) {
+        if let idx = schedules.firstIndex(where: { $0.id == id }) {
+            schedules[idx].name = name
+            saveAllSchedules()
+        }
+    }
+
+    func setStarred(id: String) {
+        for i in schedules.indices {
+            schedules[i].isStarred = (schedules[i].id == id)
+        }
+        saveAllSchedules()
+    }
+
+    func updateYearsForward(id: String, years: Int) {
+        guard let idx = schedules.firstIndex(where: { $0.id == id }),
+              let pattern = schedules[idx].pattern else { return }
+        schedules[idx].yearsForward = years
+        regenerateShifts(for: idx, pattern: pattern)
+        saveAllSchedules()
+    }
+
+    // MARK: - Merged Schedule
+    func createMergedSchedule(name: String, sourceIds: [String]) {
+        var merged = Schedule(name: name, colorTag: "purple")
+        merged.isMerged = true
+        merged.sourceScheduleIds = sourceIds
+        rebuildMergedShifts(&merged)
+        schedules.append(merged)
+        saveAllSchedules()
+    }
+
+    func rebuildMergedShifts(_ merged: inout Schedule) {
+        var allKeys = Set<String>()
+        let sources = schedules.filter { merged.sourceScheduleIds.contains($0.id) }
+        for s in sources { allKeys.formUnion(s.shifts.keys) }
+
+        var mergedShifts: [String: DayShift] = [:]
+        for key in allKeys {
+            var infos: [MergedDayInfo] = []
+            var primaryType: ShiftType = .rest
+            for s in sources {
+                if let shift = s.shifts[key] {
+                    infos.append(MergedDayInfo(scheduleName: s.name, shiftType: shift.shiftType, colorTag: s.colorTag))
+                    if shift.shiftType != .rest { primaryType = shift.shiftType }
+                }
+            }
+            let notesJson = (try? JSONEncoder().encode(infos)).flatMap { String(data: $0, encoding: .utf8) }
+            mergedShifts[key] = DayShift(id: key, shiftType: primaryType, notes: notesJson)
+        }
+        merged.shifts = mergedShifts
+    }
+
+    func refreshMergedSchedules() {
+        for i in schedules.indices where schedules[i].isMerged {
+            rebuildMergedShifts(&schedules[i])
+        }
+        saveAllSchedules()
+    }
+
+    func getMergedInfos(for dateKey: String) -> [MergedDayInfo] {
+        guard let schedule = activeSchedule, schedule.isMerged,
+              let shift = schedule.shifts[dateKey],
+              let notesStr = shift.notes,
+              let data = notesStr.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([MergedDayInfo].self, from: data)) ?? []
     }
 
     // MARK: - Display Strings
@@ -101,60 +213,52 @@ class ScheduleViewModel: ObservableObject {
     struct CalendarDay: Identifiable, Hashable {
         let id: Int
         let date: Date?
-
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(id)
-        }
-
-        static func == (lhs: CalendarDay, rhs: CalendarDay) -> Bool {
-            lhs.id == rhs.id
-        }
+        func hash(into hasher: inout Hasher) { hasher.combine(id) }
+        static func == (lhs: CalendarDay, rhs: CalendarDay) -> Bool { lhs.id == rhs.id }
     }
 
-    func daysInCurrentMonth() -> [CalendarDay] {
-        guard let range = calendar.range(of: .day, in: .month, for: currentMonth) else { return [] }
-
-        let firstWeekday = calendar.component(.weekday, from: currentMonth)
-
+    func daysInMonth(_ month: Date) -> [CalendarDay] {
+        guard let range = calendar.range(of: .day, in: .month, for: month) else { return [] }
+        let firstWeekday = calendar.component(.weekday, from: month)
         var days: [CalendarDay] = []
         var index = 0
-
         for _ in 0..<(firstWeekday - 1) {
             days.append(CalendarDay(id: index, date: nil))
             index += 1
         }
-
         for dayOffset in 0..<range.count {
-            if let date = calendar.date(byAdding: .day, value: dayOffset, to: currentMonth) {
+            if let date = calendar.date(byAdding: .day, value: dayOffset, to: month) {
                 days.append(CalendarDay(id: index, date: date))
             }
             index += 1
         }
-
         return days
+    }
+
+    func daysInCurrentMonth() -> [CalendarDay] {
+        daysInMonth(currentMonth)
     }
 
     // MARK: - Shift Operations
     func saveShift(_ shift: DayShift) {
-        dataManager.saveShift(shift)
-        loadShifts()
-        WidgetCenter.shared.reloadAllTimelines()
-        NotificationManager.shared.scheduleShiftNotifications(shifts: shifts)
+        guard let idx = schedules.firstIndex(where: { $0.id == activeScheduleId }) else { return }
+        schedules[idx].shifts[shift.id] = shift
+        refreshMergedSchedules()
     }
 
     func deleteShift(for date: Date) {
-        dataManager.deleteShift(for: dateString(from: date))
-        loadShifts()
-        WidgetCenter.shared.reloadAllTimelines()
-        NotificationManager.shared.scheduleShiftNotifications(shifts: shifts)
+        guard let idx = schedules.firstIndex(where: { $0.id == activeScheduleId }) else { return }
+        schedules[idx].shifts.removeValue(forKey: dateString(from: date))
+        refreshMergedSchedules()
     }
 
-    func generatePattern(startDate: Date, cyclePosition: CyclePosition,
-                         fuzhongStart: String, fuzhongEnd: String,
-                         kuguanStart: String, kuguanEnd: String) {
+    // MARK: - Pattern Generation (上二休二)
+    func generateTwoOnTwoOff(scheduleId: String, startDate: Date, cyclePosition: CyclePosition,
+                              fuzhongStart: String, fuzhongEnd: String,
+                              kuguanStart: String, kuguanEnd: String) {
+        guard let idx = schedules.firstIndex(where: { $0.id == scheduleId }) else { return }
         let fullCycle: [ShiftType] = [.fuzhong, .fuzhong, .rest, .rest, .kuguang, .kuguang, .rest, .rest]
         let offset = cyclePosition.rawValue
-
         let adjustedStart = calendar.date(byAdding: .day, value: -offset, to: startDate) ?? startDate
 
         let pattern = SchedulePattern(
@@ -166,37 +270,47 @@ class ScheduleViewModel: ObservableObject {
             kuguanEndTime: kuguanEnd
         )
 
-        let endDate = calendar.date(byAdding: .year, value: 2, to: adjustedStart) ?? adjustedStart
-        dataManager.generateShiftsFromPattern(pattern, until: endDate)
-        dataManager.savePattern(pattern)
-        loadShifts()
-        WidgetCenter.shared.reloadAllTimelines()
-        NotificationManager.shared.scheduleShiftNotifications(shifts: shifts)
+        let backward = calendar.date(byAdding: .year, value: -schedules[idx].yearsBackward, to: adjustedStart) ?? adjustedStart
+        let forward = calendar.date(byAdding: .year, value: schedules[idx].yearsForward, to: adjustedStart) ?? adjustedStart
+        schedules[idx].shifts = dataManager.generateShifts(pattern: pattern, from: backward, to: forward)
+        schedules[idx].pattern = pattern
+        refreshMergedSchedules()
     }
 
-    func clearAllShifts() {
-        dataManager.saveShifts([:])
-        loadShifts()
-        WidgetCenter.shared.reloadAllTimelines()
-        NotificationManager.shared.scheduleShiftNotifications(shifts: [:])
+    // MARK: - Pattern Generation (上一休一)
+    func generateOneOnOneOff(scheduleId: String, startDate: Date, simplePosition: SimplePosition,
+                              workStart: String, workEnd: String) {
+        guard let idx = schedules.firstIndex(where: { $0.id == scheduleId }) else { return }
+        let fullCycle: [ShiftType] = [.work, .rest]
+        let offset = simplePosition.rawValue
+        let adjustedStart = calendar.date(byAdding: .day, value: -offset, to: startDate) ?? startDate
+
+        let pattern = SchedulePattern(
+            startDate: dateString(from: adjustedStart),
+            cycle: fullCycle,
+            workStartTime: workStart,
+            workEndTime: workEnd
+        )
+
+        let backward = calendar.date(byAdding: .year, value: -schedules[idx].yearsBackward, to: adjustedStart) ?? adjustedStart
+        let forward = calendar.date(byAdding: .year, value: schedules[idx].yearsForward, to: adjustedStart) ?? adjustedStart
+        schedules[idx].shifts = dataManager.generateShifts(pattern: pattern, from: backward, to: forward)
+        schedules[idx].pattern = pattern
+        refreshMergedSchedules()
     }
 
-    // MARK: - Week Data for Widget
-    func currentWeekDates() -> [Date] {
-        let today = Date()
-        let weekday = calendar.component(.weekday, from: today)
-        guard let startOfWeek = calendar.date(byAdding: .day, value: -(weekday - 1), to: today) else {
-            return []
+    private func regenerateShifts(for idx: Int, pattern: SchedulePattern) {
+        guard let startDate = dataManager.date(from: pattern.startDate) else { return }
+        let backward = calendar.date(byAdding: .year, value: -schedules[idx].yearsBackward, to: startDate) ?? startDate
+        let forward = calendar.date(byAdding: .year, value: schedules[idx].yearsForward, to: startDate) ?? startDate
+        schedules[idx].shifts = dataManager.generateShifts(pattern: pattern, from: backward, to: forward)
+    }
+
+    func clearScheduleShifts(id: String) {
+        if let idx = schedules.firstIndex(where: { $0.id == id }) {
+            schedules[idx].shifts = [:]
+            schedules[idx].pattern = nil
+            refreshMergedSchedules()
         }
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
-    }
-
-    func twoWeekDates() -> [Date] {
-        let today = Date()
-        let weekday = calendar.component(.weekday, from: today)
-        guard let startOfWeek = calendar.date(byAdding: .day, value: -(weekday - 1), to: today) else {
-            return []
-        }
-        return (0..<14).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
     }
 }

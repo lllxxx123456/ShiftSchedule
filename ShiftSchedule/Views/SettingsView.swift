@@ -3,13 +3,16 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var viewModel: ScheduleViewModel
     @State private var showingQuickSetup = false
+    @State private var showingScheduleList = false
     @State private var showClearAlert = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    scheduleManageSection
                     scheduleSection
+                    yearsSection
                     statsSection
                     dangerSection
                     aboutSection
@@ -21,21 +24,72 @@ struct SettingsView: View {
             .sheet(isPresented: $showingQuickSetup) {
                 QuickSetupView(viewModel: viewModel)
             }
+            .sheet(isPresented: $showingScheduleList) {
+                ScheduleListView(viewModel: viewModel)
+            }
             .alert("确认清除", isPresented: $showClearAlert) {
                 Button("取消", role: .cancel) {}
                 Button("清除", role: .destructive) {
-                    viewModel.clearAllShifts()
+                    if let id = viewModel.activeScheduleId {
+                        viewModel.clearScheduleShifts(id: id)
+                    }
                 }
             } message: {
-                Text("确定要清除所有排班数据吗？此操作不可撤销。")
+                Text("确定要清除当前排班表的所有排班数据吗？此操作不可撤销。")
             }
+        }
+    }
+
+    // MARK: - Schedule Management
+    private var scheduleManageSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("排班表管理")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
+                .padding(.leading, 4)
+
+            Button(action: { showingScheduleList = true }) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(LinearGradient(colors: [.purple, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "list.bullet.rectangle.portrait.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("管理排班表")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primary)
+                        Text("新建、删除、星标、合并排班表")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(white: 0.45))
+                    }
+
+                    Spacer()
+
+                    Text("\(viewModel.schedules.count)个")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(white: 0.5))
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+                .padding(14)
+            }
+            .buttonStyle(.plain)
+            .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         }
     }
 
     // MARK: - Schedule Section
     private var scheduleSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("排班管理")
+            Text("快捷排班")
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(Color(white: 0.3))
                 .padding(.leading, 4)
@@ -62,9 +116,11 @@ struct SettingsView: View {
                             Text("快捷排班")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.primary)
-                            Text("一键生成上二休二规律排班")
-                                .font(.system(size: 13))
-                                .foregroundColor(Color(white: 0.45))
+                            if let schedule = viewModel.activeSchedule {
+                                Text("当前：\(schedule.name)（\(schedule.setupType.rawValue)）")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(white: 0.45))
+                            }
                         }
 
                         Spacer()
@@ -82,6 +138,54 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Years Config
+    private var yearsSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("排班范围")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color(white: 0.3))
+                .padding(.leading, 4)
+
+            if let schedule = viewModel.activeSchedule, !schedule.isMerged {
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "calendar.badge.plus")
+                            .foregroundColor(.indigo)
+                        Text("往后生成年数")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { schedule.yearsForward },
+                            set: { viewModel.updateYearsForward(id: schedule.id, years: $0) }
+                        )) {
+                            ForEach(1...10, id: \.self) { y in
+                                Text("\(y)年").tag(y)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(.indigo)
+                    }
+
+                    HStack {
+                        Image(systemName: "calendar.badge.minus")
+                            .foregroundColor(.orange)
+                        Text("往前生成年数")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text("\(schedule.yearsBackward)年")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(white: 0.45))
+                    }
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+            }
+        }
+    }
+
     // MARK: - Stats Section
     private var statsSection: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -95,6 +199,7 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 StatCard(title: "复重", count: stats.fuzhong, color: ShiftType.fuzhong.color, icon: "scalemass.fill")
                 StatCard(title: "库管", count: stats.kuguang, color: ShiftType.kuguang.color, icon: "shippingbox.fill")
+                StatCard(title: "上班", count: stats.work, color: ShiftType.work.color, icon: "briefcase.fill")
                 StatCard(title: "休息", count: stats.rest, color: ShiftType.rest.color, icon: "moon.stars.fill")
             }
         }
@@ -119,7 +224,7 @@ struct SettingsView: View {
                             .foregroundColor(.red)
                     }
 
-                    Text("清除所有排班")
+                    Text("清除当前排班表数据")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.red)
 
@@ -144,7 +249,7 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 infoRow(icon: "app.badge", title: "应用名称", value: "排班表")
                 Divider().padding(.leading, 58)
-                infoRow(icon: "number", title: "版本", value: "1.0.0")
+                infoRow(icon: "number", title: "版本", value: "2.0.0")
                 Divider().padding(.leading, 58)
                 infoRow(icon: "iphone", title: "适配", value: "iOS 17.0+")
             }
@@ -180,6 +285,7 @@ struct SettingsView: View {
     private struct Stats {
         var fuzhong: Int = 0
         var kuguang: Int = 0
+        var work: Int = 0
         var rest: Int = 0
     }
 
@@ -196,13 +302,15 @@ struct SettingsView: View {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
 
+        let shifts = viewModel.activeShifts
         for dayOffset in 0..<range.count {
             if let date = calendar.date(byAdding: .day, value: dayOffset, to: startOfMonth) {
                 let key = df.string(from: date)
-                if let shift = viewModel.shifts[key] {
+                if let shift = shifts[key] {
                     switch shift.shiftType {
                     case .fuzhong: stats.fuzhong += 1
                     case .kuguang: stats.kuguang += 1
+                    case .work: stats.work += 1
                     case .rest: stats.rest += 1
                     }
                 }
@@ -222,19 +330,19 @@ struct StatCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: 18))
                 .foregroundColor(color)
 
             Text("\(count)")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundColor(.primary)
 
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(Color(white: 0.35))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(.white)

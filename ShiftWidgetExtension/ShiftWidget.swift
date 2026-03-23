@@ -16,12 +16,12 @@ struct ShiftWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ShiftEntry) -> Void) {
-        let entry = ShiftEntry(date: Date(), shifts: dataManager.loadShifts())
+        let entry = ShiftEntry(date: Date(), shifts: dataManager.loadWidgetShifts())
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShiftEntry>) -> Void) {
-        let shifts = dataManager.loadShifts()
+        let shifts = dataManager.loadWidgetShifts()
         let entry = ShiftEntry(date: Date(), shifts: shifts)
 
         let calendar = Calendar.current
@@ -219,7 +219,7 @@ struct MediumWidgetView: View {
     }
 }
 
-// MARK: - Large Widget
+// MARK: - Large Widget (4 weeks to fill space)
 struct LargeWidgetView: View {
     let entry: ShiftEntry
 
@@ -236,74 +236,77 @@ struct LargeWidgetView: View {
         let today = entry.date
         let weekday = calendar.component(.weekday, from: today)
         let startOfWeek = calendar.date(byAdding: .day, value: -(weekday - 1), to: today) ?? today
-        let twoWeekDates = (0..<14).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
-        let week1 = Array(twoWeekDates.prefix(7))
-        let week2 = Array(twoWeekDates.suffix(7))
+        let allDates = (0..<28).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
+        let week1 = Array(allDates[0..<7])
+        let week2 = Array(allDates[7..<14])
+        let week3 = Array(allDates[14..<21])
+        let week4 = Array(allDates[21..<28])
 
         let todayShift = entry.shifts[dateFormatter.string(from: today)]
 
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             HStack {
                 Text("排班表")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                 Spacer()
                 Text(monthYearString(today))
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white.opacity(0.85))
             }
 
             HStack(spacing: 0) {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { index, day in
                     Text(day)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(index == 0 || index == 6 ? .white.opacity(0.6) : .white.opacity(0.85))
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.top, 2)
+            .padding(.top, 1)
 
             weekRow(week1, calendar: calendar)
             weekRow(week2, calendar: calendar)
-
-            Spacer(minLength: 2)
+            weekRow(week3, calendar: calendar)
+            weekRow(week4, calendar: calendar)
 
             Rectangle()
-                .fill(.white.opacity(0.2))
+                .fill(.white.opacity(0.15))
                 .frame(height: 1)
+                .padding(.vertical, 2)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: todayShift?.shiftType.icon ?? "calendar")
-                    .font(.system(size: 22))
+                    .font(.system(size: 20))
                     .foregroundColor(.white)
 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text("今日 \(todayDateString(today))")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white.opacity(0.85))
 
                     Text(todayShift?.shiftType.rawValue ?? "未排班")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
 
                 Spacer()
 
                 if let shift = todayShift, let start = shift.startTime, let end = shift.endTime {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text("\(start)")
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text(start)
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .foregroundColor(.white)
-                        Text("\(end)")
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        Text(end)
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.7))
                     }
                 }
             }
             .padding(.horizontal, 2)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .containerBackground(for: .widget) {
             LinearGradient(
                 colors: [
@@ -318,39 +321,34 @@ struct LargeWidgetView: View {
     }
 
     private func weekRow(_ dates: [Date], calendar: Calendar) -> some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 2) {
             ForEach(Array(dates.enumerated()), id: \.offset) { _, date in
                 let key = dateFormatter.string(from: date)
                 let shift = entry.shifts[key]
                 let isToday = calendar.isDateInToday(date)
                 let dayNum = calendar.component(.day, from: date)
 
-                VStack(spacing: 3) {
+                VStack(spacing: 2) {
                     Text("\(dayNum)")
-                        .font(.system(size: 15, weight: isToday ? .heavy : .semibold, design: .rounded))
+                        .font(.system(size: 14, weight: isToday ? .heavy : .semibold, design: .rounded))
                         .foregroundColor(.white)
-
-                    Text(LunarCalendarHelper.lunarDateString(for: date))
-                        .font(.system(size: 8))
-                        .foregroundColor(.white.opacity(0.7))
-                        .lineLimit(1)
 
                     if let shift = shift {
                         Text(shift.shiftType.rawValue)
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 8, weight: .bold))
                             .foregroundColor(shift.shiftType.color)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
                             .background(.white)
                             .clipShape(Capsule())
                     } else {
-                        Spacer().frame(height: 15)
+                        Color.clear.frame(height: 13)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 5)
+                .padding(.vertical, 3)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(isToday ? .white.opacity(0.2) : .clear)
                 )
             }
@@ -381,7 +379,7 @@ struct ShiftWidget: Widget {
             ShiftWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("排班表")
-        .description("在桌面查看排班信息")
+        .description("在桌面查看星标排班表信息")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

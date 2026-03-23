@@ -87,6 +87,14 @@ struct DayDetailView: View {
     }
 
     // MARK: - Shift Type Selector
+    private var availableTypes: [ShiftType] {
+        let setupType = viewModel.activeSchedule?.setupType ?? .twoOnTwoOff
+        switch setupType {
+        case .twoOnTwoOff: return [.fuzhong, .kuguang, .rest]
+        case .oneOnOneOff: return [.work, .rest]
+        }
+    }
+
     private var shiftTypeSelector: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("岗位类型")
@@ -94,7 +102,7 @@ struct DayDetailView: View {
                 .foregroundColor(.secondary)
 
             HStack(spacing: 10) {
-                ForEach(ShiftType.allCases) { type in
+                ForEach(availableTypes) { type in
                     Button(action: { withAnimation(.spring(response: 0.3)) { shiftType = type } }) {
                         VStack(spacing: 8) {
                             ZStack {
@@ -209,7 +217,7 @@ struct DayDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
 
-            if viewModel.shifts[viewModel.dateString(from: date)] != nil {
+            if viewModel.activeShifts[viewModel.dateString(from: date)] != nil {
                 Button(action: {
                     viewModel.deleteShift(for: date)
                     dismiss()
@@ -234,7 +242,7 @@ struct DayDetailView: View {
     // MARK: - Helpers
     private func loadExistingShift() {
         let key = viewModel.dateString(from: date)
-        if let existing = viewModel.shifts[key] {
+        if let existing = viewModel.activeShifts[key] {
             shiftType = existing.shiftType
             if let st = existing.startTime, let parsed = parseTime(st) {
                 startTime = parsed
