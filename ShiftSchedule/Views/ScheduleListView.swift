@@ -9,6 +9,8 @@ struct ScheduleListView: View {
     @State private var newColorTag = "indigo"
     @State private var editingId: String?
     @State private var editName = ""
+    @State private var deleteTargetId: String?
+    @State private var showDeleteAlert = false
     @Environment(\.colorScheme) private var colorScheme
 
     private let colorOptions: [(String, Color)] = [
@@ -37,6 +39,17 @@ struct ScheduleListView: View {
             .navigationTitle("排班表管理")
             .sheet(isPresented: $showAddSheet) { addSheet }
             .sheet(isPresented: $showMergeSheet) { mergeSheet }
+            .alert("确认删除", isPresented: $showDeleteAlert) {
+                Button("取消", role: .cancel) { deleteTargetId = nil }
+                Button("删除", role: .destructive) {
+                    if let id = deleteTargetId {
+                        viewModel.deleteSchedule(id: id)
+                    }
+                    deleteTargetId = nil
+                }
+            } message: {
+                Text("确定要删除这个排班表吗？删除后无法恢复。")
+            }
         }
     }
 
@@ -131,7 +144,8 @@ struct ScheduleListView: View {
 
                 if viewModel.schedules.count > 1 {
                     Button(action: {
-                        viewModel.deleteSchedule(id: schedule.id)
+                        deleteTargetId = schedule.id
+                        showDeleteAlert = true
                     }) {
                         Image(systemName: "trash")
                             .font(.system(size: 13))

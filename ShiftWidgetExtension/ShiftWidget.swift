@@ -5,6 +5,7 @@ import SwiftUI
 struct ShiftEntry: TimelineEntry {
     let date: Date
     let shifts: [String: DayShift]
+    let scheduleName: String
 }
 
 // MARK: - Timeline Provider
@@ -12,21 +13,22 @@ struct ShiftWidgetProvider: TimelineProvider {
     private let dataManager = ShiftDataManager.shared
 
     func placeholder(in context: Context) -> ShiftEntry {
-        ShiftEntry(date: Date(), shifts: [:])
+        ShiftEntry(date: Date(), shifts: [:], scheduleName: "排班表")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ShiftEntry) -> Void) {
-        let entry = ShiftEntry(date: Date(), shifts: dataManager.loadWidgetShifts())
+        let info = dataManager.loadWidgetInfo()
+        let entry = ShiftEntry(date: Date(), shifts: info.shifts, scheduleName: info.name)
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShiftEntry>) -> Void) {
-        let shifts = dataManager.loadWidgetShifts()
-        let entry = ShiftEntry(date: Date(), shifts: shifts)
+        let info = dataManager.loadWidgetInfo()
+        let entry = ShiftEntry(date: Date(), shifts: info.shifts, scheduleName: info.name)
 
         let calendar = Calendar.current
-        let nextMidnight = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
-        let timeline = Timeline(entries: [entry], policy: .after(nextMidnight))
+        let nextRefresh = calendar.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
+        let timeline = Timeline(entries: [entry], policy: .after(nextRefresh))
         completion(timeline)
     }
 }
@@ -139,7 +141,7 @@ struct MediumWidgetView: View {
 
         VStack(spacing: 4) {
             HStack {
-                Text("排班表")
+                Text(entry.scheduleName)
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
                 Spacer()
@@ -246,9 +248,9 @@ struct LargeWidgetView: View {
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         let tomorrowShift = entry.shifts[dateFormatter.string(from: tomorrow)]
 
-        VStack(spacing: 5) {
+        VStack(spacing: 0) {
             HStack {
-                Text("排班表")
+                Text(entry.scheduleName)
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                 Spacer()
@@ -256,6 +258,7 @@ struct LargeWidgetView: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white.opacity(0.85))
             }
+            .padding(.bottom, 4)
 
             HStack(spacing: 0) {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { index, day in
@@ -265,17 +268,19 @@ struct LargeWidgetView: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.top, 1)
+            .padding(.bottom, 2)
 
             weekRow(week1, calendar: calendar)
             weekRow(week2, calendar: calendar)
             weekRow(week3, calendar: calendar)
             weekRow(week4, calendar: calendar)
 
+            Spacer(minLength: 2)
+
             Rectangle()
                 .fill(.white.opacity(0.15))
                 .frame(height: 1)
-                .padding(.vertical, 1)
+                .padding(.vertical, 2)
 
             HStack(spacing: 0) {
                 HStack(spacing: 6) {
@@ -333,8 +338,8 @@ struct LargeWidgetView: View {
             }
             .padding(.horizontal, 2)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .containerBackground(for: .widget) {
             LinearGradient(
                 colors: [

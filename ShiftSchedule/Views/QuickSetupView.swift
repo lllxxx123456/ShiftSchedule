@@ -107,6 +107,28 @@ struct QuickSetupView: View {
                 .datePickerStyle(.graphical)
                 .environment(\.locale, Locale(identifier: "zh_CN"))
                 .tint(Color(red: 79/255, green: 70/255, blue: 229/255))
+
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Color(red: 79/255, green: 70/255, blue: 229/255))
+                    .font(.system(size: 16))
+                Text("已选择：\(selectedDateString)")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(red: 79/255, green: 70/255, blue: 229/255))
+                Spacer()
+                Text(selectedPositionLabel)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(selectedPositionColor)
+                    .clipShape(Capsule())
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(red: 79/255, green: 70/255, blue: 229/255).opacity(0.1))
+            )
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white))
@@ -282,6 +304,32 @@ struct QuickSetupView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: Color(red: 79/255, green: 70/255, blue: 229/255).opacity(0.4), radius: 12, x: 0, y: 4)
         }
+    }
+
+    // MARK: - Selected Date Display
+    private var selectedDateString: String {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日 EEEE"
+        f.locale = Locale(identifier: "zh_CN")
+        return f.string(from: startDate)
+    }
+
+    private var selectedPositionLabel: String {
+        if setupType == .twoOnTwoOff {
+            return cyclePosition.displayName
+        } else {
+            return simplePosition.displayName
+        }
+    }
+
+    private var selectedPositionColor: Color {
+        if setupType == .twoOnTwoOff {
+            switch cyclePosition {
+            case .fuzhongDay1, .fuzhongDay2: return ShiftType.fuzhong.color
+            case .kuguanDay1, .kuguanDay2: return ShiftType.kuguang.color
+            }
+        }
+        return simplePosition == .workDay ? ShiftType.work.color : ShiftType.rest.color
     }
 
     // MARK: - Helpers

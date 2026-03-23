@@ -61,6 +61,14 @@ class ShiftDataManager {
         return target?.shifts ?? [:]
     }
 
+    func loadWidgetInfo() -> (shifts: [String: DayShift], name: String) {
+        let schedules = loadSchedules()
+        let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
+        let shifts = target?.shifts ?? loadWidgetShifts()
+        let name = target?.name ?? "排班表"
+        return (shifts, name)
+    }
+
     // MARK: - Generate Shifts from Pattern
     func generateShifts(pattern: SchedulePattern, from startDate: Date, to endDate: Date) -> [String: DayShift] {
         var shifts: [String: DayShift] = [:]

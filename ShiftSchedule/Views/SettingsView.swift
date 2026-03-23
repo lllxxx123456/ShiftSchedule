@@ -2,10 +2,14 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: ScheduleViewModel
-    @State private var showingQuickSetup = false
-    @State private var showingScheduleList = false
+    @State private var activeSheet: SettingsSheetType?
     @State private var showClearAlert = false
     @Environment(\.colorScheme) private var colorScheme
+
+    private enum SettingsSheetType: String, Identifiable {
+        case quickSetup, scheduleList
+        var id: String { rawValue }
+    }
 
     private var pageBg: Color {
         colorScheme == .dark ? Color(red: 0.11, green: 0.11, blue: 0.13) : Color(red: 0.96, green: 0.96, blue: 0.98)
@@ -35,11 +39,13 @@ struct SettingsView: View {
             }
             .background(pageBg)
             .navigationTitle("设置")
-            .sheet(isPresented: $showingQuickSetup) {
-                QuickSetupView(viewModel: viewModel)
-            }
-            .sheet(isPresented: $showingScheduleList) {
-                ScheduleListView(viewModel: viewModel)
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .quickSetup:
+                    QuickSetupView(viewModel: viewModel)
+                case .scheduleList:
+                    ScheduleListView(viewModel: viewModel)
+                }
             }
             .alert("确认清除", isPresented: $showClearAlert) {
                 Button("取消", role: .cancel) {}
@@ -62,7 +68,7 @@ struct SettingsView: View {
                 .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
-            Button(action: { showingScheduleList = true }) {
+            Button(action: { activeSheet = .scheduleList }) {
                 HStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
@@ -109,7 +115,7 @@ struct SettingsView: View {
                 .padding(.leading, 4)
 
             VStack(spacing: 0) {
-                Button(action: { showingQuickSetup = true }) {
+                Button(action: { activeSheet = .quickSetup }) {
                     HStack(spacing: 12) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
