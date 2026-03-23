@@ -31,8 +31,6 @@ class ShiftDataManager {
         if let data = try? JSONEncoder().encode(schedules) {
             userDefaults.set(data, forKey: schedulesKey)
             userDefaults.synchronize()
-            UserDefaults.standard.set(data, forKey: schedulesKey)
-            UserDefaults.standard.synchronize()
         }
         syncWidgetData(schedules)
     }
@@ -44,20 +42,23 @@ class ShiftDataManager {
     }
 
     func syncWidgetData(_ schedules: [Schedule]) {
-        if let starred = schedules.first(where: { $0.isStarred }) {
-            if let data = try? JSONEncoder().encode(starred.shifts) {
-                userDefaults.set(data, forKey: widgetShiftsKey)
-                userDefaults.synchronize()
-                UserDefaults.standard.set(data, forKey: widgetShiftsKey)
-                UserDefaults.standard.synchronize()
-            }
+        let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
+        guard let target = target else { return }
+        if let data = try? JSONEncoder().encode(target.shifts) {
+            userDefaults.set(data, forKey: widgetShiftsKey)
+            userDefaults.synchronize()
         }
     }
 
     func loadWidgetShifts() -> [String: DayShift] {
-        let data = userDefaults.data(forKey: widgetShiftsKey) ?? UserDefaults.standard.data(forKey: widgetShiftsKey)
-        guard let data = data else { return [:] }
-        return (try? JSONDecoder().decode([String: DayShift].self, from: data)) ?? [:]
+        if let data = userDefaults.data(forKey: widgetShiftsKey),
+           let shifts = try? JSONDecoder().decode([String: DayShift].self, from: data),
+           !shifts.isEmpty {
+            return shifts
+        }
+        let schedules = loadSchedules()
+        let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
+        return target?.shifts ?? [:]
     }
 
     // MARK: - Generate Shifts from Pattern
@@ -66,12 +67,15 @@ class ShiftDataManager {
         let calendar = Calendar.current
         let cycleLength = pattern.cycle.count
 
-        var current = startDate
-        var index = 0
+        guard let patternOrigin = date(from: pattern.startDate) else { return shifts }
 
+        var current = startDate
         while current <= endDate {
             let key = dateString(from: current)
-            let shiftType = pattern.cycle[index % cycleLength]
+            let daysDiff = calendar.dateComponents([.day], from: patternOrigin, to: current).day ?? 0
+            var cycleIndex = daysDiff % cycleLength
+            if cycleIndex < 0 { cycleIndex += cycleLength }
+            let shiftType = pattern.cycle[cycleIndex]
 
             var sTime: String?
             var eTime: String?
@@ -101,7 +105,6 @@ class ShiftDataManager {
 
             guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
             current = next
-            index += 1
         }
 
         return shifts

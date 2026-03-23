@@ -4,6 +4,7 @@ struct DayDetailView: View {
     @ObservedObject var viewModel: ScheduleViewModel
     let date: Date
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var shiftType: ShiftType = .rest
     @State private var startTime: Date = Calendar.current.date(from: DateComponents(hour: 8, minute: 30)) ?? Date()
@@ -17,6 +18,13 @@ struct DayDetailView: View {
         f.dateFormat = "HH:mm"
         return f
     }()
+
+    private var pageBg: Color {
+        colorScheme == .dark ? Color(red: 0.11, green: 0.11, blue: 0.13) : Color(red: 0.96, green: 0.96, blue: 0.98)
+    }
+    private var cardBg: Color {
+        colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white
+    }
 
     var body: some View {
         NavigationStack {
@@ -32,7 +40,7 @@ struct DayDetailView: View {
                 }
                 .padding(20)
             }
-            .background(Color(red: 0.96, green: 0.96, blue: 0.98))
+            .background(pageBg)
             .navigationTitle("排班详情")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -82,7 +90,7 @@ struct DayDetailView: View {
             Spacer()
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(cardBg))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
@@ -137,7 +145,7 @@ struct DayDetailView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(cardBg))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
@@ -158,7 +166,7 @@ struct DayDetailView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(cardBg))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
@@ -188,7 +196,7 @@ struct DayDetailView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(cardBg))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 

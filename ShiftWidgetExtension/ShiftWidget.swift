@@ -219,7 +219,7 @@ struct MediumWidgetView: View {
     }
 }
 
-// MARK: - Large Widget (4 weeks to fill space)
+// MARK: - Large Widget (4 weeks + today/tomorrow info)
 struct LargeWidgetView: View {
     let entry: ShiftEntry
 
@@ -243,8 +243,10 @@ struct LargeWidgetView: View {
         let week4 = Array(allDates[21..<28])
 
         let todayShift = entry.shifts[dateFormatter.string(from: today)]
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let tomorrowShift = entry.shifts[dateFormatter.string(from: tomorrow)]
 
-        VStack(spacing: 4) {
+        VStack(spacing: 5) {
             HStack {
                 Text("排班表")
                     .font(.system(size: 16, weight: .bold))
@@ -273,35 +275,61 @@ struct LargeWidgetView: View {
             Rectangle()
                 .fill(.white.opacity(0.15))
                 .frame(height: 1)
-                .padding(.vertical, 2)
+                .padding(.vertical, 1)
 
-            HStack(spacing: 8) {
-                Image(systemName: todayShift?.shiftType.icon ?? "calendar")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("今日 \(todayDateString(today))")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.85))
-
-                    Text(todayShift?.shiftType.rawValue ?? "未排班")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+            HStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    Image(systemName: todayShift?.shiftType.icon ?? "calendar")
+                        .font(.system(size: 18))
                         .foregroundColor(.white)
-                }
 
-                Spacer()
-
-                if let shift = todayShift, let start = shift.startTime, let end = shift.endTime {
-                    VStack(alignment: .trailing, spacing: 0) {
-                        Text(start)
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("今天")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                        Text(todayShift?.shiftType.rawValue ?? "未排班")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
-                        Text(end)
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    }
+
+                    Spacer()
+
+                    if let shift = todayShift, let start = shift.startTime, let end = shift.endTime {
+                        Text("\(start)-\(end)")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                Rectangle()
+                    .fill(.white.opacity(0.2))
+                    .frame(width: 1, height: 30)
+                    .padding(.horizontal, 6)
+
+                HStack(spacing: 6) {
+                    Image(systemName: tomorrowShift?.shiftType.icon ?? "calendar")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white.opacity(0.8))
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("明天")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                        Text(tomorrowShift?.shiftType.rawValue ?? "未排班")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+
+                    Spacer()
+
+                    if let shift = tomorrowShift, let start = shift.startTime, let end = shift.endTime {
+                        Text("\(start)-\(end)")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.7))
                     }
                 }
+                .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 2)
         }

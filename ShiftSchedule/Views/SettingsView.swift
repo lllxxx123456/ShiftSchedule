@@ -5,6 +5,20 @@ struct SettingsView: View {
     @State private var showingQuickSetup = false
     @State private var showingScheduleList = false
     @State private var showClearAlert = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var pageBg: Color {
+        colorScheme == .dark ? Color(red: 0.11, green: 0.11, blue: 0.13) : Color(red: 0.96, green: 0.96, blue: 0.98)
+    }
+    private var cardBg: Color {
+        colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white
+    }
+    private var sectionTitle: Color {
+        colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3)
+    }
+    private var subtitleColor: Color {
+        colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.45)
+    }
 
     var body: some View {
         NavigationStack {
@@ -19,7 +33,7 @@ struct SettingsView: View {
                 }
                 .padding(20)
             }
-            .background(Color(red: 0.96, green: 0.96, blue: 0.98))
+            .background(pageBg)
             .navigationTitle("设置")
             .sheet(isPresented: $showingQuickSetup) {
                 QuickSetupView(viewModel: viewModel)
@@ -45,7 +59,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("排班表管理")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
             Button(action: { showingScheduleList = true }) {
@@ -62,17 +76,17 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("管理排班表")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primary)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                         Text("新建、删除、星标、合并排班表")
                             .font(.system(size: 13))
-                            .foregroundColor(Color(white: 0.45))
+                            .foregroundColor(subtitleColor)
                     }
 
                     Spacer()
 
                     Text("\(viewModel.schedules.count)个")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(white: 0.5))
+                        .foregroundColor(subtitleColor)
 
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
@@ -81,7 +95,7 @@ struct SettingsView: View {
                 .padding(14)
             }
             .buttonStyle(.plain)
-            .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+            .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         }
     }
@@ -91,7 +105,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("快捷排班")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
             VStack(spacing: 0) {
@@ -115,11 +129,11 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("快捷排班")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.primary)
+                                .foregroundColor(colorScheme == .dark ? .white : .primary)
                             if let schedule = viewModel.activeSchedule {
                                 Text("当前：\(schedule.name)（\(schedule.setupType.rawValue)）")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(white: 0.45))
+                                    .foregroundColor(subtitleColor)
                             }
                         }
 
@@ -133,7 +147,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+            .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         }
     }
@@ -143,7 +157,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("排班范围")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
             if let schedule = viewModel.activeSchedule, !schedule.isMerged {
@@ -153,7 +167,7 @@ struct SettingsView: View {
                             .foregroundColor(.indigo)
                         Text("往后生成年数")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.primary)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                         Spacer()
                         Picker("", selection: Binding(
                             get: { schedule.yearsForward },
@@ -172,15 +186,15 @@ struct SettingsView: View {
                             .foregroundColor(.orange)
                         Text("往前生成年数")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.primary)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                         Spacer()
                         Text("\(schedule.yearsBackward)年")
                             .font(.system(size: 15))
-                            .foregroundColor(Color(white: 0.45))
+                            .foregroundColor(subtitleColor)
                     }
                 }
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+                .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
             }
         }
@@ -191,7 +205,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("排班统计（本月）")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
             let stats = calculateStats()
@@ -210,7 +224,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("数据管理")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
             Button(action: { showClearAlert = true }) {
@@ -233,7 +247,7 @@ struct SettingsView: View {
                 .padding(14)
             }
             .buttonStyle(.plain)
-            .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+            .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         }
     }
@@ -243,7 +257,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("关于")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
             VStack(spacing: 0) {
@@ -253,7 +267,7 @@ struct SettingsView: View {
                 Divider().padding(.leading, 58)
                 infoRow(icon: "iphone", title: "适配", value: "iOS 17.0+")
             }
-            .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+            .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         }
     }
@@ -271,13 +285,13 @@ struct SettingsView: View {
 
             Text(title)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
 
             Spacer()
 
             Text(value)
                 .font(.system(size: 15))
-                .foregroundColor(Color(white: 0.4))
+                .foregroundColor(subtitleColor)
         }
         .padding(14)
     }
@@ -326,6 +340,7 @@ struct StatCard: View {
     let count: Int
     let color: Color
     let icon: String
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 8) {
@@ -335,17 +350,17 @@ struct StatCard: View {
 
             Text("\(count)")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundColor(.primary)
+                .foregroundColor(colorScheme == .dark ? .white : Color(red: 0.15, green: 0.15, blue: 0.2))
 
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Color(white: 0.35))
+                .foregroundColor(colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.35))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(.white)
+                .fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white)
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
     }

@@ -9,6 +9,7 @@ struct ScheduleListView: View {
     @State private var newColorTag = "indigo"
     @State private var editingId: String?
     @State private var editName = ""
+    @Environment(\.colorScheme) private var colorScheme
 
     private let colorOptions: [(String, Color)] = [
         ("indigo", Color(red: 79/255, green: 70/255, blue: 229/255)),
@@ -32,7 +33,7 @@ struct ScheduleListView: View {
                 }
                 .padding(16)
             }
-            .background(Color(red: 0.96, green: 0.96, blue: 0.98))
+            .background(colorScheme == .dark ? Color(red: 0.11, green: 0.11, blue: 0.13) : Color(red: 0.96, green: 0.96, blue: 0.98))
             .navigationTitle("排班表管理")
             .sheet(isPresented: $showAddSheet) { addSheet }
             .sheet(isPresented: $showMergeSheet) { mergeSheet }
@@ -86,15 +87,15 @@ struct ScheduleListView: View {
                 if !schedule.isMerged {
                     Text(schedule.setupType.rawValue)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color(white: 0.45))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.45))
 
                     Text("班次: \(schedule.shifts.count)天")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(white: 0.5))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.55) : Color(white: 0.5))
                 } else {
                     Text("合并自 \(schedule.sourceScheduleIds.count) 个排班表")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(white: 0.5))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.55) : Color(white: 0.5))
                 }
 
                 Spacer()
@@ -104,7 +105,7 @@ struct ScheduleListView: View {
                 }) {
                     Image(systemName: schedule.isStarred ? "star.fill" : "star")
                         .font(.system(size: 14))
-                        .foregroundColor(schedule.isStarred ? .yellow : Color(white: 0.6))
+                        .foregroundColor(schedule.isStarred ? .yellow : Color(white: 0.55))
                 }
 
                 Button(action: {
@@ -113,7 +114,7 @@ struct ScheduleListView: View {
                 }) {
                     Image(systemName: "pencil")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(white: 0.5))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.5))
                 }
 
                 Button(action: {
@@ -143,7 +144,7 @@ struct ScheduleListView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.white)
+                .fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white)
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
     }
@@ -198,7 +199,7 @@ struct ScheduleListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("排班表名称")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Color(white: 0.3))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
                     TextField("例如：我的排班", text: $newName)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 15))
@@ -207,7 +208,7 @@ struct ScheduleListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("排班模式")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Color(white: 0.3))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
                     Picker("", selection: $newSetupType) {
                         ForEach(QuickSetupType.allCases) { type in
                             Text(type.rawValue).tag(type)
@@ -219,7 +220,7 @@ struct ScheduleListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("颜色标签")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Color(white: 0.3))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
                     HStack(spacing: 12) {
                         ForEach(colorOptions, id: \.0) { tag, color in
                             Circle()
@@ -266,7 +267,7 @@ struct ScheduleListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("汇总名称")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Color(white: 0.3))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
                     TextField("例如：汇总排班", text: $mergeName)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 15))
@@ -275,7 +276,7 @@ struct ScheduleListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("选择要合并的排班表")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Color(white: 0.3))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
 
                     ForEach(viewModel.schedules.filter({ !$0.isMerged })) { schedule in
                         Button(action: {
@@ -297,7 +298,7 @@ struct ScheduleListView: View {
                             .padding(12)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedMergeIds.contains(schedule.id) ? colorForTag(schedule.colorTag).opacity(0.08) : Color(white: 0.97))
+                                    .fill(selectedMergeIds.contains(schedule.id) ? colorForTag(schedule.colorTag).opacity(0.08) : (colorScheme == .dark ? Color(white: 0.15) : Color(white: 0.97)))
                             )
                         }
                     }

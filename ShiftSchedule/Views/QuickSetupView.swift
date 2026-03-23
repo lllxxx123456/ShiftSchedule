@@ -3,6 +3,7 @@ import SwiftUI
 struct QuickSetupView: View {
     @ObservedObject var viewModel: ScheduleViewModel
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var startDate = Date()
     @State private var cyclePosition: CyclePosition = .fuzhongDay1
@@ -46,7 +47,7 @@ struct QuickSetupView: View {
                 }
                 .padding(20)
             }
-            .background(Color(red: 0.96, green: 0.96, blue: 0.98))
+            .background(colorScheme == .dark ? Color(red: 0.11, green: 0.11, blue: 0.13) : Color(red: 0.96, green: 0.96, blue: 0.98))
             .navigationTitle("快捷排班 - \(setupType.rawValue)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -73,18 +74,18 @@ struct QuickSetupView: View {
                     .foregroundColor(.blue)
                 Text("使用说明")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(white: 0.2))
+                    .foregroundColor(colorScheme == .dark ? .white : Color(white: 0.2))
             }
 
             if setupType == .twoOnTwoOff {
                 Text("选择一个你确定的日期，并指定该日是复重还是库管的第几天。系统将按照「复重→复重→休息→休息→库管→库管→休息→休息」的规律自动排列。")
                     .font(.system(size: 14))
-                    .foregroundColor(Color(white: 0.4))
+                    .foregroundColor(colorScheme == .dark ? Color(white: 0.65) : Color(white: 0.4))
                     .lineSpacing(4)
             } else {
                 Text("选择一个你确定的日期，指定该日是上班还是休息。系统将按照「上班→休息」的规律自动排列。")
                     .font(.system(size: 14))
-                    .foregroundColor(Color(white: 0.4))
+                    .foregroundColor(colorScheme == .dark ? Color(white: 0.65) : Color(white: 0.4))
                     .lineSpacing(4)
             }
         }
@@ -100,7 +101,7 @@ struct QuickSetupView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("选择已知日期", systemImage: "calendar.badge.clock")
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
 
             DatePicker("日期", selection: $startDate, displayedComponents: .date)
                 .datePickerStyle(.graphical)
@@ -108,7 +109,7 @@ struct QuickSetupView: View {
                 .tint(Color(red: 79/255, green: 70/255, blue: 229/255))
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
@@ -117,7 +118,7 @@ struct QuickSetupView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("该日是什么班", systemImage: "person.badge.clock")
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(CyclePosition.allCases) { pos in
@@ -143,7 +144,7 @@ struct QuickSetupView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
@@ -152,7 +153,7 @@ struct QuickSetupView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("该日是什么班", systemImage: "person.badge.clock")
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
 
             HStack(spacing: 12) {
                 ForEach(SimplePosition.allCases) { pos in
@@ -178,7 +179,7 @@ struct QuickSetupView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
@@ -206,31 +207,31 @@ struct QuickSetupView: View {
                 Circle().fill(color).frame(width: 10, height: 10)
                 Text(title)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(white: 0.3))
+                    .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
             }
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("上班")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color(white: 0.4))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.4))
                     DatePicker("", selection: startTime, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                 }
                 Spacer()
                 Image(systemName: "arrow.right")
-                    .foregroundColor(Color(white: 0.4))
+                    .foregroundColor(colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.4))
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("下班")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color(white: 0.4))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.4))
                     DatePicker("", selection: endTime, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                 }
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
@@ -239,7 +240,7 @@ struct QuickSetupView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("排班预览（前16天）", systemImage: "eye")
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(Color(white: 0.3))
+                .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
 
             let preview = generatePreview()
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8), spacing: 4) {
@@ -257,7 +258,7 @@ struct QuickSetupView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 16).fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white))
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 

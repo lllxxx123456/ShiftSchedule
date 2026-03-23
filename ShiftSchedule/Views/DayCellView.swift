@@ -5,6 +5,7 @@ struct DayCellView: View {
     let shift: DayShift?
     let isToday: Bool
     let isWeekend: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     private let calendar = Calendar.current
 
@@ -55,7 +56,7 @@ struct DayCellView: View {
             return Color(red: 79/255, green: 70/255, blue: 229/255)
         }
         if let shift = shift {
-            return shift.shiftType.lightColor.opacity(0.4)
+            return shift.shiftType.lightColor.opacity(colorScheme == .dark ? 0.25 : 0.4)
         }
         return .clear
     }
@@ -64,7 +65,7 @@ struct DayCellView: View {
         if isWeekend {
             return .red.opacity(0.65)
         }
-        return .primary
+        return colorScheme == .dark ? .white : Color(red: 0.15, green: 0.15, blue: 0.2)
     }
 
     private var lunarText: String {
@@ -76,6 +77,6 @@ struct DayCellView: View {
            LunarCalendarHelper.solarFestival(for: date) != nil {
             return Color(red: 234/255, green: 88/255, blue: 12/255)
         }
-        return .gray.opacity(0.7)
+        return colorScheme == .dark ? .gray.opacity(0.8) : .gray.opacity(0.7)
     }
 }
