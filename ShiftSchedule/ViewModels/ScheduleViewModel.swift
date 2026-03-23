@@ -60,10 +60,13 @@ class ScheduleViewModel: ObservableObject {
         if activeScheduleId == nil, let first = schedules.first {
             activeScheduleId = first.id
         }
+        dataManager.syncWidgetData(schedules)
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShiftWidget")
     }
 
     func saveAllSchedules() {
         dataManager.saveSchedules(schedules)
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShiftWidget")
         WidgetCenter.shared.reloadAllTimelines()
         if let starred = starredSchedule {
             NotificationManager.shared.scheduleShiftNotifications(shifts: starred.shifts)
@@ -72,6 +75,10 @@ class ScheduleViewModel: ObservableObject {
 
     func dateString(from date: Date) -> String {
         dateFormatter.string(from: date)
+    }
+
+    private func normalizedDate(_ date: Date) -> Date {
+        calendar.startOfDay(for: date)
     }
 
     // MARK: - Schedule CRUD
@@ -259,7 +266,8 @@ class ScheduleViewModel: ObservableObject {
         guard let idx = schedules.firstIndex(where: { $0.id == scheduleId }) else { return }
         let fullCycle: [ShiftType] = [.fuzhong, .fuzhong, .rest, .rest, .kuguang, .kuguang, .rest, .rest]
         let offset = cyclePosition.rawValue
-        let adjustedStart = calendar.date(byAdding: .day, value: -offset, to: startDate) ?? startDate
+        let knownDate = normalizedDate(startDate)
+        let adjustedStart = calendar.date(byAdding: .day, value: -offset, to: knownDate) ?? knownDate
 
         let pattern = SchedulePattern(
             startDate: dateString(from: adjustedStart),
@@ -283,7 +291,8 @@ class ScheduleViewModel: ObservableObject {
         guard let idx = schedules.firstIndex(where: { $0.id == scheduleId }) else { return }
         let fullCycle: [ShiftType] = [.work, .rest]
         let offset = simplePosition.rawValue
-        let adjustedStart = calendar.date(byAdding: .day, value: -offset, to: startDate) ?? startDate
+        let knownDate = normalizedDate(startDate)
+        let adjustedStart = calendar.date(byAdding: .day, value: -offset, to: knownDate) ?? knownDate
 
         let pattern = SchedulePattern(
             startDate: dateString(from: adjustedStart),
@@ -301,8 +310,9 @@ class ScheduleViewModel: ObservableObject {
 
     private func regenerateShifts(for idx: Int, pattern: SchedulePattern) {
         guard let startDate = dataManager.date(from: pattern.startDate) else { return }
-        let backward = calendar.date(byAdding: .year, value: -schedules[idx].yearsBackward, to: startDate) ?? startDate
-        let forward = calendar.date(byAdding: .year, value: schedules[idx].yearsForward, to: startDate) ?? startDate
+        let normalizedStartDate = normalizedDate(startDate)
+        let backward = calendar.date(byAdding: .year, value: -schedules[idx].yearsBackward, to: normalizedStartDate) ?? normalizedStartDate
+        let forward = calendar.date(byAdding: .year, value: schedules[idx].yearsForward, to: normalizedStartDate) ?? normalizedStartDate
         schedules[idx].shifts = dataManager.generateShifts(pattern: pattern, from: backward, to: forward)
     }
 

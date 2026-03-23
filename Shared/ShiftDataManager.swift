@@ -3,9 +3,15 @@ import Foundation
 class ShiftDataManager {
     static let shared = ShiftDataManager()
 
+    private struct WidgetSnapshot: Codable {
+        let name: String
+        let shifts: [String: DayShift]
+    }
+
     private let suiteName = "group.com.myshift.schedule"
     private let schedulesKey = "savedSchedules"
     private let widgetShiftsKey = "widgetShifts"
+    private let widgetSnapshotKey = "widgetSnapshot"
 
     private var userDefaults: UserDefaults {
         UserDefaults(suiteName: suiteName) ?? UserDefaults.standard
@@ -43,14 +49,32 @@ class ShiftDataManager {
 
     func syncWidgetData(_ schedules: [Schedule]) {
         let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
-        guard let target = target else { return }
+        guard let target = target else {
+            userDefaults.removeObject(forKey: widgetShiftsKey)
+            userDefaults.removeObject(forKey: widgetSnapshotKey)
+            userDefaults.synchronize()
+            return
+        }
+
         if let data = try? JSONEncoder().encode(target.shifts) {
             userDefaults.set(data, forKey: widgetShiftsKey)
-            userDefaults.synchronize()
         }
+
+        let snapshot = WidgetSnapshot(name: target.name, shifts: target.shifts)
+        if let snapshotData = try? JSONEncoder().encode(snapshot) {
+            userDefaults.set(snapshotData, forKey: widgetSnapshotKey)
+        }
+
+        userDefaults.synchronize()
     }
 
     func loadWidgetShifts() -> [String: DayShift] {
+        if let snapshotData = userDefaults.data(forKey: widgetSnapshotKey),
+           let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: snapshotData),
+           !snapshot.shifts.isEmpty {
+            return snapshot.shifts
+        }
+
         if let data = userDefaults.data(forKey: widgetShiftsKey),
            let shifts = try? JSONDecoder().decode([String: DayShift].self, from: data),
            !shifts.isEmpty {
@@ -62,6 +86,11 @@ class ShiftDataManager {
     }
 
     func loadWidgetInfo() -> (shifts: [String: DayShift], name: String) {
+        if let snapshotData = userDefaults.data(forKey: widgetSnapshotKey),
+           let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: snapshotData) {
+            return (snapshot.shifts, snapshot.name)
+        }
+
         let schedules = loadSchedules()
         let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
         let shifts = target?.shifts ?? loadWidgetShifts()
@@ -77,10 +106,13 @@ class ShiftDataManager {
 
         guard let patternOrigin = date(from: pattern.startDate) else { return shifts }
 
-        var current = startDate
-        while current <= endDate {
+        let normalizedOrigin = calendar.startOfDay(for: patternOrigin)
+        let finalDate = calendar.startOfDay(for: endDate)
+
+        var current = calendar.startOfDay(for: startDate)
+        while current <= finalDate {
             let key = dateString(from: current)
-            let daysDiff = calendar.dateComponents([.day], from: patternOrigin, to: current).day ?? 0
+            let daysDiff = calendar.dateComponents([.day], from: normalizedOrigin, to: current).day ?? 0
             var cycleIndex = daysDiff % cycleLength
             if cycleIndex < 0 { cycleIndex += cycleLength }
             let shiftType = pattern.cycle[cycleIndex]
