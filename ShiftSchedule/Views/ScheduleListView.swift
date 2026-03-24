@@ -2,16 +2,22 @@ import SwiftUI
 
 struct ScheduleListView: View {
     @ObservedObject var viewModel: ScheduleViewModel
+    @Binding var selectedTab: Int
     @State private var showAddSheet = false
     @State private var showMergeSheet = false
     @State private var newName = ""
+    @State private var newCity = ""
     @State private var newSetupType: QuickSetupType = .twoOnTwoOff
     @State private var newColorTag = "indigo"
     @State private var editingId: String?
     @State private var editName = ""
     @State private var deleteTargetId: String?
     @State private var showDeleteAlert = false
+    @State private var editCityId: String?
+    @State private var editCity = ""
+    @State private var showCityAlert = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     private let colorOptions: [(String, Color)] = [
         ("indigo", Color(red: 79/255, green: 70/255, blue: 229/255)),
@@ -49,6 +55,17 @@ struct ScheduleListView: View {
                 }
             } message: {
                 Text("确定要删除这个排班表吗？删除后无法恢复。")
+            }
+            .alert("设置天气城市", isPresented: $showCityAlert) {
+                TextField("城市名称", text: $editCity)
+                Button("取消", role: .cancel) {}
+                Button("确定") {
+                    if let id = editCityId {
+                        viewModel.updateScheduleCity(id: id, city: editCity)
+                    }
+                }
+            } message: {
+                Text("输入该排班表对应的城市名称，用于在日历底部显示天气")
             }
         }
     }
@@ -111,6 +128,12 @@ struct ScheduleListView: View {
                         .foregroundColor(colorScheme == .dark ? Color(white: 0.55) : Color(white: 0.5))
                 }
 
+                if !schedule.city.isEmpty {
+                    Label(schedule.city, systemImage: "mappin.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.orange.opacity(0.8))
+                }
+
                 Spacer()
 
                 Button(action: {
@@ -131,7 +154,21 @@ struct ScheduleListView: View {
                 }
 
                 Button(action: {
-                    viewModel.activeScheduleId = schedule.id
+                    editCityId = schedule.id
+                    editCity = schedule.city
+                    showCityAlert = true
+                }) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 13))
+                        .foregroundColor(.orange.opacity(0.7))
+                }
+
+                Button(action: {
+                    viewModel.switchToSchedule(schedule.id)
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        selectedTab = 0
+                    }
                 }) {
                     Text("查看")
                         .font(.system(size: 12, weight: .semibold))
@@ -232,6 +269,15 @@ struct ScheduleListView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
+                    Text("天气城市")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
+                    TextField("例如：北京（选填，用于显示天气）", text: $newCity)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 15))
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
                     Text("颜色标签")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
@@ -262,7 +308,12 @@ struct ScheduleListView: View {
                     Button("创建") {
                         let name = newName.isEmpty ? (newSetupType == .twoOnTwoOff ? "我的排班" : "TA的排班") : newName
                         viewModel.addSchedule(name: name, setupType: newSetupType, colorTag: newColorTag)
+                        if !newCity.trimmingCharacters(in: .whitespaces).isEmpty,
+                           let last = viewModel.schedules.last {
+                            viewModel.updateScheduleCity(id: last.id, city: newCity.trimmingCharacters(in: .whitespaces))
+                        }
                         newName = ""
+                        newCity = ""
                         showAddSheet = false
                     }
                 }

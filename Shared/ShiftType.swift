@@ -90,6 +90,7 @@ struct Schedule: Codable, Identifiable {
     var isMerged: Bool = false
     var sourceScheduleIds: [String] = []
     var colorTag: String = "indigo"
+    var city: String = ""
 }
 
 // MARK: - Schedule Pattern

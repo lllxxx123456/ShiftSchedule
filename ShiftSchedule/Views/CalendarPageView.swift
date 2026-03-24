@@ -26,6 +26,14 @@ struct CalendarPageView: View {
         colorScheme == .dark ? Color(white: 0.55) : Color(white: 0.55)
     }
 
+    private var isMergedView: Bool {
+        viewModel.activeSchedule?.isMerged == true
+    }
+
+    private var cellHeight: CGFloat {
+        isMergedView ? 85 : 68
+    }
+
     var body: some View {
         ZStack {
             pageBg.ignoresSafeArea()
@@ -41,6 +49,9 @@ struct CalendarPageView: View {
                         todayInfoCard
                             .padding(.horizontal, 16)
 
+                        weatherCard
+                            .padding(.horizontal, 16)
+
                         Spacer(minLength: 80)
                     }
                 }
@@ -53,6 +64,9 @@ struct CalendarPageView: View {
             if let date = viewModel.selectedDate {
                 DayDetailView(viewModel: viewModel, date: date)
             }
+        }
+        .onAppear {
+            viewModel.fetchWeatherForActiveSchedule()
         }
     }
 
@@ -94,14 +108,31 @@ struct CalendarPageView: View {
             .padding(.horizontal, 16)
 
             HStack(spacing: 10) {
-                if let schedule = viewModel.activeSchedule {
-                    Text(schedule.name)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(.white.opacity(0.2))
-                        .clipShape(Capsule())
+                Menu {
+                    ForEach(viewModel.schedules) { schedule in
+                        Button {
+                            viewModel.switchToSchedule(schedule.id)
+                        } label: {
+                            HStack {
+                                Text(schedule.name)
+                                if schedule.id == viewModel.activeScheduleId {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(viewModel.activeSchedule?.name ?? "排班表")
+                            .font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(.white.opacity(0.2))
+                    .clipShape(Capsule())
                 }
 
                 Spacer()
@@ -175,18 +206,22 @@ struct CalendarPageView: View {
             LazyVGrid(columns: columns, spacing: 4) {
                 ForEach(viewModel.daysInCurrentMonth()) { dayItem in
                     if let date = dayItem.date {
+                        let dateKey = viewModel.dateString(from: date)
+                        let mergedInfos = isMergedView ? viewModel.getMergedInfos(for: dateKey) : []
                         DayCellView(
                             date: date,
-                            shift: viewModel.activeShifts[viewModel.dateString(from: date)],
+                            shift: viewModel.activeShifts[dateKey],
                             isToday: viewModel.isToday(date),
-                            isWeekend: viewModel.isWeekend(date)
+                            isWeekend: viewModel.isWeekend(date),
+                            mergedInfos: mergedInfos,
+                            cellHeight: cellHeight
                         )
                         .onTapGesture {
                             viewModel.selectedDate = date
                             showingDayDetail = true
                         }
                     } else {
-                        Color.clear.frame(height: 68)
+                        Color.clear.frame(height: cellHeight)
                     }
                 }
             }
@@ -289,6 +324,62 @@ struct CalendarPageView: View {
                 .fill(cardBg)
                 .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 4)
         )
+    }
+
+    // MARK: - Weather Card
+    @ViewBuilder
+    private var weatherCard: some View {
+        if let weather = viewModel.weatherData {
+            HStack(spacing: 14) {
+                Image(systemName: weather.iconName)
+                    .font(.system(size: 36))
+                    .foregroundStyle(weather.iconColor)
+                    .frame(width: 50)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("\(weather.temperature)°C")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(labelPrimary)
+                        Text(weather.description)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(labelPrimary)
+                    }
+
+                    HStack(spacing: 12) {
+                        Label(weather.cityName, systemImage: "mappin.circle.fill")
+                            .font(.system(size: 12))
+                        Label("H:\(weather.highTemp)° L:\(weather.lowTemp)°", systemImage: "thermometer.medium")
+                            .font(.system(size: 12))
+                        Label("\(weather.humidity)%", systemImage: "humidity.fill")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundColor(labelSecondary)
+                }
+
+                Spacer()
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(cardBg)
+                    .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 4)
+            )
+        } else if viewModel.isLoadingWeather {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("加载天气中...")
+                    .font(.system(size: 14))
+                    .foregroundColor(labelSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(cardBg)
+                    .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 4)
+            )
+        }
     }
 
     // MARK: - Month Switch

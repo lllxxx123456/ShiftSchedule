@@ -48,21 +48,24 @@ class ShiftDataManager {
     }
 
     func syncWidgetData(_ schedules: [Schedule]) {
+        // 写入全量排班表供 Widget 直接读取
+        if let allData = try? JSONEncoder().encode(schedules) {
+            userDefaults.set(allData, forKey: schedulesKey)
+        }
+
+        // 写入星标排班快照供 Widget 快速访问
         let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
-        guard let target = target else {
+        if let target = target {
+            if let data = try? JSONEncoder().encode(target.shifts) {
+                userDefaults.set(data, forKey: widgetShiftsKey)
+            }
+            let snapshot = WidgetSnapshot(name: target.name, shifts: target.shifts)
+            if let snapshotData = try? JSONEncoder().encode(snapshot) {
+                userDefaults.set(snapshotData, forKey: widgetSnapshotKey)
+            }
+        } else {
             userDefaults.removeObject(forKey: widgetShiftsKey)
             userDefaults.removeObject(forKey: widgetSnapshotKey)
-            userDefaults.synchronize()
-            return
-        }
-
-        if let data = try? JSONEncoder().encode(target.shifts) {
-            userDefaults.set(data, forKey: widgetShiftsKey)
-        }
-
-        let snapshot = WidgetSnapshot(name: target.name, shifts: target.shifts)
-        if let snapshotData = try? JSONEncoder().encode(snapshot) {
-            userDefaults.set(snapshotData, forKey: widgetSnapshotKey)
         }
 
         userDefaults.synchronize()

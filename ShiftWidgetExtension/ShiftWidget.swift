@@ -17,19 +17,28 @@ struct ShiftWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ShiftEntry) -> Void) {
-        let info = dataManager.loadWidgetInfo()
-        let entry = ShiftEntry(date: Date(), shifts: info.shifts, scheduleName: info.name)
+        let result = loadStarredData()
+        let entry = ShiftEntry(date: Date(), shifts: result.shifts, scheduleName: result.name)
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShiftEntry>) -> Void) {
-        let info = dataManager.loadWidgetInfo()
-        let entry = ShiftEntry(date: Date(), shifts: info.shifts, scheduleName: info.name)
+        let result = loadStarredData()
+        let entry = ShiftEntry(date: Date(), shifts: result.shifts, scheduleName: result.name)
 
         let calendar = Calendar.current
-        let nextRefresh = calendar.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
+        let nextRefresh = calendar.date(byAdding: .minute, value: 15, to: Date()) ?? Date()
         let timeline = Timeline(entries: [entry], policy: .after(nextRefresh))
         completion(timeline)
+    }
+
+    private func loadStarredData() -> (shifts: [String: DayShift], name: String) {
+        let schedules = dataManager.loadSchedules()
+        if !schedules.isEmpty {
+            let target = schedules.first(where: { $0.isStarred }) ?? schedules.first!
+            return (target.shifts, target.name)
+        }
+        return dataManager.loadWidgetInfo()
     }
 }
 

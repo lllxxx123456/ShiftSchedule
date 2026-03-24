@@ -7,6 +7,8 @@ class ScheduleViewModel: ObservableObject {
     @Published var schedules: [Schedule] = []
     @Published var activeScheduleId: String?
     @Published var selectedDate: Date?
+    @Published var weatherData: WeatherData?
+    @Published var isLoadingWeather = false
 
     private let dataManager = ShiftDataManager.shared
 
@@ -70,6 +72,40 @@ class ScheduleViewModel: ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
         if let starred = starredSchedule {
             NotificationManager.shared.scheduleShiftNotifications(shifts: starred.shifts)
+        }
+    }
+
+    // MARK: - Widget Sync
+    func syncWidget() {
+        dataManager.syncWidgetData(schedules)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    // MARK: - Schedule Switching
+    func switchToSchedule(_ id: String) {
+        activeScheduleId = id
+        fetchWeatherForActiveSchedule()
+    }
+
+    // MARK: - Weather
+    func fetchWeatherForActiveSchedule() {
+        guard let schedule = activeSchedule, !schedule.city.isEmpty else {
+            weatherData = nil
+            return
+        }
+        isLoadingWeather = true
+        WeatherService.shared.fetchWeather(for: schedule.city) { [weak self] data in
+            self?.weatherData = data
+            self?.isLoadingWeather = false
+        }
+    }
+
+    func updateScheduleCity(id: String, city: String) {
+        guard let idx = schedules.firstIndex(where: { $0.id == id }) else { return }
+        schedules[idx].city = city
+        saveAllSchedules()
+        if id == activeScheduleId {
+            fetchWeatherForActiveSchedule()
         }
     }
 

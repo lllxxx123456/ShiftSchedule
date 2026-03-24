@@ -2,8 +2,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: ScheduleViewModel
+    @Binding var selectedTab: Int
     @State private var activeSheet: SettingsSheetType?
     @State private var showClearAlert = false
+    @State private var showSyncToast = false
     @Environment(\.colorScheme) private var colorScheme
 
     private enum SettingsSheetType: String, Identifiable {
@@ -29,6 +31,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     scheduleManageSection
+                    widgetSyncSection
                     scheduleSection
                     yearsSection
                     statsSection
@@ -44,9 +47,31 @@ struct SettingsView: View {
                 case .quickSetup:
                     QuickSetupView(viewModel: viewModel)
                 case .scheduleList:
-                    ScheduleListView(viewModel: viewModel)
+                    ScheduleListView(viewModel: viewModel, selectedTab: $selectedTab)
                 }
             }
+            .overlay(
+                Group {
+                    if showSyncToast {
+                        VStack {
+                            Spacer()
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("小组件已同步")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                            .shadow(radius: 8)
+                            .padding(.bottom, 30)
+                        }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+            )
             .alert("确认清除", isPresented: $showClearAlert) {
                 Button("取消", role: .cancel) {}
                 Button("清除", role: .destructive) {
@@ -99,6 +124,56 @@ struct SettingsView: View {
                         .foregroundColor(.secondary.opacity(0.5))
                 }
                 .padding(14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
+            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        }
+    }
+
+    // MARK: - Widget Sync
+    private var widgetSyncSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("小组件")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(sectionTitle)
+                .padding(.leading, 4)
+
+            Button(action: {
+                viewModel.syncWidget()
+                withAnimation(.spring()) { showSyncToast = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation { showSyncToast = false }
+                }
+            }) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("同步小组件")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
+                        Text("手动刷新桌面小组件数据")
+                            .font(.system(size: 13))
+                            .foregroundColor(subtitleColor)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.blue)
+                }
+                .padding(14)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
@@ -150,6 +225,7 @@ struct SettingsView: View {
                             .foregroundColor(.secondary.opacity(0.5))
                     }
                     .padding(14)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -251,6 +327,7 @@ struct SettingsView: View {
                     Spacer()
                 }
                 .padding(14)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))

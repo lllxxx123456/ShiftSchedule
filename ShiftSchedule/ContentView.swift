@@ -13,7 +13,7 @@ struct ContentView: View {
                 }
                 .tag(0)
 
-            SettingsView(viewModel: viewModel)
+            SettingsView(viewModel: viewModel, selectedTab: $selectedTab)
                 .tabItem {
                     Image(systemName: "gearshape.fill")
                     Text("设置")
