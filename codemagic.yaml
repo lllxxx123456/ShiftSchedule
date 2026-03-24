@@ -10,7 +10,6 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: development
-        bundle_identifier: com.myshift.schedule*
     scripts:
       - name: Install XcodeGen
         script: |
