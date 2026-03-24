@@ -2,10 +2,23 @@ import SwiftUI
 
 struct CalendarPageView: View {
     @ObservedObject var viewModel: ScheduleViewModel
-    @State private var showingQuickSetup = false
-    @State private var showingDayDetail = false
+    @State private var activeSheet: ActiveSheet?
     @GestureState private var dragOffset: CGFloat = 0
     @Environment(\.colorScheme) private var colorScheme
+
+    private enum ActiveSheet: Identifiable {
+        case quickSetup
+        case dayDetail(Date)
+
+        var id: String {
+            switch self {
+            case .quickSetup:
+                return "quickSetup"
+            case .dayDetail(let date):
+                return "dayDetail-\(date.timeIntervalSince1970)"
+            }
+        }
+    }
 
     private let weekdays = ["日", "一", "二", "三", "四", "五", "六"]
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
@@ -30,8 +43,17 @@ struct CalendarPageView: View {
         viewModel.activeSchedule?.isMerged == true
     }
 
+    private var maxMergedCountInVisibleMonth: Int {
+        guard isMergedView else { return 0 }
+        return viewModel.daysInCurrentMonth().compactMap { dayItem in
+            guard let date = dayItem.date else { return nil }
+            return viewModel.getMergedInfos(for: viewModel.dateString(from: date)).count
+        }.max() ?? 0
+    }
+
     private var cellHeight: CGFloat {
-        isMergedView ? 85 : 68
+        guard isMergedView else { return 68 }
+        return max(85, CGFloat(50 + maxMergedCountInVisibleMonth * 12))
     }
 
     var body: some View {
@@ -57,11 +79,11 @@ struct CalendarPageView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingQuickSetup) {
-            QuickSetupView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showingDayDetail) {
-            if let date = viewModel.selectedDate {
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .quickSetup:
+                QuickSetupView(viewModel: viewModel)
+            case .dayDetail(let date):
                 DayDetailView(viewModel: viewModel, date: date)
             }
         }
@@ -153,7 +175,7 @@ struct CalendarPageView: View {
                     .clipShape(Capsule())
                 }
 
-                Button(action: { showingQuickSetup = true }) {
+                Button(action: { activeSheet = .quickSetup }) {
                     HStack(spacing: 3) {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 9))
@@ -218,7 +240,7 @@ struct CalendarPageView: View {
                         )
                         .onTapGesture {
                             viewModel.selectedDate = date
-                            showingDayDetail = true
+                            activeSheet = .dayDetail(date)
                         }
                     } else {
                         Color.clear.frame(height: cellHeight)
@@ -373,6 +395,32 @@ struct CalendarPageView: View {
                     .foregroundColor(labelSecondary)
             }
             .frame(maxWidth: .infinity)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(cardBg)
+                    .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 4)
+            )
+        } else {
+            let city = viewModel.activeSchedule?.city.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            HStack(spacing: 12) {
+                Image(systemName: city.isEmpty ? "cloud.sun.fill" : "wifi.exclamationmark")
+                    .font(.system(size: 24))
+                    .foregroundColor(city.isEmpty ? .orange : .gray)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(city.isEmpty ? "未设置天气城市" : "天气暂时不可用")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(labelPrimary)
+
+                    Text(city.isEmpty ? "请到排班表管理中为当前排班表设置城市" : "请稍后重试，或检查当前城市与网络连接")
+                        .font(.system(size: 13))
+                        .foregroundColor(labelSecondary)
+                }
+
+                Spacer()
+            }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 20)

@@ -20,6 +20,10 @@ struct QuickSetupView: View {
         viewModel.activeSchedule?.setupType ?? .twoOnTwoOff
     }
 
+    private var isMergedSchedule: Bool {
+        viewModel.activeSchedule?.isMerged == true
+    }
+
     private let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
@@ -30,20 +34,24 @@ struct QuickSetupView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    instructionCard
-                    datePickerCard
-
-                    if setupType == .twoOnTwoOff {
-                        positionCardTwoOnTwo
-                        fuzhongTimeCard
-                        kuguanTimeCard
+                    if isMergedSchedule {
+                        mergedUnsupportedCard
                     } else {
-                        positionCardOneOnOne
-                        workTimeCard
-                    }
+                        instructionCard
+                        datePickerCard
 
-                    previewCard
-                    generateButton
+                        if setupType == .twoOnTwoOff {
+                            positionCardTwoOnTwo
+                            fuzhongTimeCard
+                            kuguanTimeCard
+                        } else {
+                            positionCardOneOnOne
+                            workTimeCard
+                        }
+
+                        previewCard
+                        generateButton
+                    }
                 }
                 .padding(20)
             }
@@ -64,6 +72,34 @@ struct QuickSetupView: View {
                 Text("将根据设置前后各2年自动生成排班数据，已有的排班数据将被覆盖。")
             }
         }
+    }
+
+    private var mergedUnsupportedCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                Text("汇总排班不支持快捷排班")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(colorScheme == .dark ? .white : Color(white: 0.2))
+            }
+
+            Text("当前选择的是合并后的汇总排班表。请先回到首页切换到普通排班表，再进行快捷排班生成。")
+                .font(.system(size: 14))
+                .foregroundColor(colorScheme == .dark ? Color(white: 0.65) : Color(white: 0.4))
+                .lineSpacing(4)
+
+            Button("关闭") { dismiss() }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.orange)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 16).fill(colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white))
+        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
     // MARK: - Instruction Card
@@ -347,6 +383,7 @@ struct QuickSetupView: View {
 
     private func generateAndDismiss() {
         guard let scheduleId = viewModel.activeScheduleId else { return }
+        guard !isMergedSchedule else { return }
 
         if setupType == .twoOnTwoOff {
             viewModel.generateTwoOnTwoOff(

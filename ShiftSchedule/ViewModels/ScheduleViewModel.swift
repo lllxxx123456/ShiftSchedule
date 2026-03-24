@@ -59,11 +59,12 @@ class ScheduleViewModel: ObservableObject {
     // MARK: - Data Loading
     func loadSchedules() {
         schedules = dataManager.loadSchedules()
-        if activeScheduleId == nil, let first = schedules.first {
-            activeScheduleId = first.id
+        if activeScheduleId == nil || !schedules.contains(where: { $0.id == activeScheduleId }) {
+            activeScheduleId = schedules.first?.id
         }
         dataManager.syncWidgetData(schedules)
         WidgetCenter.shared.reloadTimelines(ofKind: "ShiftWidget")
+        fetchWeatherForActiveSchedule()
     }
 
     func saveAllSchedules() {
@@ -78,6 +79,7 @@ class ScheduleViewModel: ObservableObject {
     // MARK: - Widget Sync
     func syncWidget() {
         dataManager.syncWidgetData(schedules)
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShiftWidget")
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -90,6 +92,7 @@ class ScheduleViewModel: ObservableObject {
     // MARK: - Weather
     func fetchWeatherForActiveSchedule() {
         guard let schedule = activeSchedule, !schedule.city.isEmpty else {
+            isLoadingWeather = false
             weatherData = nil
             return
         }
@@ -102,7 +105,7 @@ class ScheduleViewModel: ObservableObject {
 
     func updateScheduleCity(id: String, city: String) {
         guard let idx = schedules.firstIndex(where: { $0.id == id }) else { return }
-        schedules[idx].city = city
+        schedules[idx].city = city.trimmingCharacters(in: .whitespacesAndNewlines)
         saveAllSchedules()
         if id == activeScheduleId {
             fetchWeatherForActiveSchedule()
@@ -124,17 +127,21 @@ class ScheduleViewModel: ObservableObject {
         schedules.append(schedule)
         activeScheduleId = schedule.id
         saveAllSchedules()
+        fetchWeatherForActiveSchedule()
     }
 
     func deleteSchedule(id: String) {
         schedules.removeAll(where: { $0.id == id })
         if activeScheduleId == id { activeScheduleId = schedules.first?.id }
         saveAllSchedules()
+        fetchWeatherForActiveSchedule()
     }
 
     func renameSchedule(id: String, name: String) {
         if let idx = schedules.firstIndex(where: { $0.id == id }) {
-            schedules[idx].name = name
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            schedules[idx].name = trimmed
             saveAllSchedules()
         }
     }
@@ -156,7 +163,8 @@ class ScheduleViewModel: ObservableObject {
 
     // MARK: - Merged Schedule
     func createMergedSchedule(name: String, sourceIds: [String]) {
-        var merged = Schedule(name: name, colorTag: "purple")
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        var merged = Schedule(name: trimmedName.isEmpty ? "汇总排班" : trimmedName, colorTag: "purple")
         merged.isMerged = true
         merged.sourceScheduleIds = sourceIds
         rebuildMergedShifts(&merged)
@@ -285,12 +293,14 @@ class ScheduleViewModel: ObservableObject {
     // MARK: - Shift Operations
     func saveShift(_ shift: DayShift) {
         guard let idx = schedules.firstIndex(where: { $0.id == activeScheduleId }) else { return }
+        guard !schedules[idx].isMerged else { return }
         schedules[idx].shifts[shift.id] = shift
         refreshMergedSchedules()
     }
 
     func deleteShift(for date: Date) {
         guard let idx = schedules.firstIndex(where: { $0.id == activeScheduleId }) else { return }
+        guard !schedules[idx].isMerged else { return }
         schedules[idx].shifts.removeValue(forKey: dateString(from: date))
         refreshMergedSchedules()
     }
@@ -300,6 +310,7 @@ class ScheduleViewModel: ObservableObject {
                               fuzhongStart: String, fuzhongEnd: String,
                               kuguanStart: String, kuguanEnd: String) {
         guard let idx = schedules.firstIndex(where: { $0.id == scheduleId }) else { return }
+        guard !schedules[idx].isMerged else { return }
         let fullCycle: [ShiftType] = [.fuzhong, .fuzhong, .rest, .rest, .kuguang, .kuguang, .rest, .rest]
         let offset = cyclePosition.rawValue
         let knownDate = normalizedDate(startDate)
@@ -325,6 +336,7 @@ class ScheduleViewModel: ObservableObject {
     func generateOneOnOneOff(scheduleId: String, startDate: Date, simplePosition: SimplePosition,
                               workStart: String, workEnd: String) {
         guard let idx = schedules.firstIndex(where: { $0.id == scheduleId }) else { return }
+        guard !schedules[idx].isMerged else { return }
         let fullCycle: [ShiftType] = [.work, .rest]
         let offset = simplePosition.rawValue
         let knownDate = normalizedDate(startDate)
@@ -354,6 +366,7 @@ class ScheduleViewModel: ObservableObject {
 
     func clearScheduleShifts(id: String) {
         if let idx = schedules.firstIndex(where: { $0.id == id }) {
+            guard !schedules[idx].isMerged else { return }
             schedules[idx].shifts = [:]
             schedules[idx].pattern = nil
             refreshMergedSchedules()

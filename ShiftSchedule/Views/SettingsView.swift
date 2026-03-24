@@ -26,6 +26,11 @@ struct SettingsView: View {
         colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.45)
     }
 
+    private var canClearActiveSchedule: Bool {
+        guard let schedule = viewModel.activeSchedule else { return false }
+        return !schedule.isMerged
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -309,20 +314,32 @@ struct SettingsView: View {
                 .foregroundColor(sectionTitle)
                 .padding(.leading, 4)
 
-            Button(action: { showClearAlert = true }) {
+            Button(action: {
+                if canClearActiveSchedule {
+                    showClearAlert = true
+                }
+            }) {
                 HStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.red.opacity(0.1))
+                            .fill((canClearActiveSchedule ? Color.red : Color.gray).opacity(0.1))
                             .frame(width: 32, height: 32)
                         Image(systemName: "trash.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(.red)
+                            .foregroundColor(canClearActiveSchedule ? .red : .gray)
                     }
 
-                    Text("清除当前排班表数据")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("清除当前排班表数据")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(canClearActiveSchedule ? .red : .gray)
+
+                        if !canClearActiveSchedule {
+                            Text("汇总排班不能直接清空，请修改来源排班表")
+                                .font(.system(size: 12))
+                                .foregroundColor(subtitleColor)
+                        }
+                    }
 
                     Spacer()
                 }
@@ -330,6 +347,7 @@ struct SettingsView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(!canClearActiveSchedule)
             .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         }

@@ -26,17 +26,29 @@ struct DayDetailView: View {
         colorScheme == .dark ? Color(red: 0.17, green: 0.17, blue: 0.19) : .white
     }
 
+    private var isMergedSchedule: Bool {
+        viewModel.activeSchedule?.isMerged == true
+    }
+
+    private var mergedInfos: [MergedDayInfo] {
+        viewModel.getMergedInfos(for: viewModel.dateString(from: date))
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     dateInfoCard
-                    shiftTypeSelector
-                    if shiftType != .rest {
-                        timeSection
-                        detailSection
+                    if isMergedSchedule {
+                        mergedInfoSection
+                    } else {
+                        shiftTypeSelector
+                        if shiftType != .rest {
+                            timeSection
+                            detailSection
+                        }
+                        actionButtons
                     }
-                    actionButtons
                 }
                 .padding(20)
             }
@@ -50,6 +62,52 @@ struct DayDetailView: View {
             }
             .onAppear { loadExistingShift() }
         }
+    }
+
+    private var mergedInfoSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.stack.3d.up.fill")
+                    .foregroundColor(.purple)
+                Text("汇总排班详情")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(colorScheme == .dark ? .white : Color(white: 0.2))
+            }
+
+            Text("汇总排班仅展示来源排班，不支持在这里直接编辑。")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+
+            if mergedInfos.isEmpty {
+                Text("当日暂无来源排班数据")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(Array(mergedInfos.enumerated()), id: \.offset) { _, info in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(colorForTag(info.colorTag))
+                                .frame(width: 10, height: 10)
+
+                            Text(info.scheduleName)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(colorScheme == .dark ? .white : .primary)
+
+                            Spacer()
+
+                            Text(info.shiftType.rawValue)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(colorForTag(info.colorTag))
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 16).fill(cardBg))
+        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
     // MARK: - Date Info Card
@@ -249,6 +307,7 @@ struct DayDetailView: View {
 
     // MARK: - Helpers
     private func loadExistingShift() {
+        guard !isMergedSchedule else { return }
         let key = viewModel.dateString(from: date)
         if let existing = viewModel.activeShifts[key] {
             shiftType = existing.shiftType
@@ -288,5 +347,17 @@ struct DayDetailView: View {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         return f.date(from: timeStr)
+    }
+
+    private func colorForTag(_ tag: String) -> Color {
+        switch tag {
+        case "indigo": return Color(red: 79/255, green: 70/255, blue: 229/255)
+        case "blue": return Color(red: 59/255, green: 130/255, blue: 246/255)
+        case "orange": return Color(red: 234/255, green: 138/255, blue: 56/255)
+        case "green": return Color(red: 16/255, green: 185/255, blue: 129/255)
+        case "pink": return Color(red: 236/255, green: 72/255, blue: 153/255)
+        case "purple": return Color(red: 147/255, green: 51/255, blue: 234/255)
+        default: return .indigo
+        }
     }
 }

@@ -24,11 +24,14 @@ struct ShiftWidgetProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShiftEntry>) -> Void) {
         let result = loadStarredData()
-        let entry = ShiftEntry(date: Date(), shifts: result.shifts, scheduleName: result.name)
-
         let calendar = Calendar.current
-        let nextRefresh = calendar.date(byAdding: .minute, value: 15, to: Date()) ?? Date()
-        let timeline = Timeline(entries: [entry], policy: .after(nextRefresh))
+        let startOfToday = calendar.startOfDay(for: Date())
+        let entries = (0..<30).compactMap { offset -> ShiftEntry? in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: startOfToday) else { return nil }
+            return ShiftEntry(date: date, shifts: result.shifts, scheduleName: result.name)
+        }
+        let nextRefresh = calendar.date(byAdding: .day, value: 30, to: startOfToday) ?? Date()
+        let timeline = Timeline(entries: entries, policy: .after(nextRefresh))
         completion(timeline)
     }
 

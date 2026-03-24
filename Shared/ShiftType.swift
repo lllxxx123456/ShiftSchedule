@@ -91,6 +91,81 @@ struct Schedule: Codable, Identifiable {
     var sourceScheduleIds: [String] = []
     var colorTag: String = "indigo"
     var city: String = ""
+
+    init(
+        id: String = UUID().uuidString,
+        name: String,
+        isStarred: Bool = false,
+        shifts: [String: DayShift] = [:],
+        pattern: SchedulePattern? = nil,
+        setupType: QuickSetupType = .twoOnTwoOff,
+        yearsForward: Int = 2,
+        yearsBackward: Int = 2,
+        isMerged: Bool = false,
+        sourceScheduleIds: [String] = [],
+        colorTag: String = "indigo",
+        city: String = ""
+    ) {
+        self.id = id
+        self.name = name
+        self.isStarred = isStarred
+        self.shifts = shifts
+        self.pattern = pattern
+        self.setupType = setupType
+        self.yearsForward = yearsForward
+        self.yearsBackward = yearsBackward
+        self.isMerged = isMerged
+        self.sourceScheduleIds = sourceScheduleIds
+        self.colorTag = colorTag
+        self.city = city
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case isStarred
+        case shifts
+        case pattern
+        case setupType
+        case yearsForward
+        case yearsBackward
+        case isMerged
+        case sourceScheduleIds
+        case colorTag
+        case city
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        name = try container.decode(String.self, forKey: .name)
+        isStarred = try container.decodeIfPresent(Bool.self, forKey: .isStarred) ?? false
+        shifts = try container.decodeIfPresent([String: DayShift].self, forKey: .shifts) ?? [:]
+        pattern = try container.decodeIfPresent(SchedulePattern.self, forKey: .pattern)
+        setupType = try container.decodeIfPresent(QuickSetupType.self, forKey: .setupType) ?? .twoOnTwoOff
+        yearsForward = try container.decodeIfPresent(Int.self, forKey: .yearsForward) ?? 2
+        yearsBackward = try container.decodeIfPresent(Int.self, forKey: .yearsBackward) ?? 2
+        isMerged = try container.decodeIfPresent(Bool.self, forKey: .isMerged) ?? false
+        sourceScheduleIds = try container.decodeIfPresent([String].self, forKey: .sourceScheduleIds) ?? []
+        colorTag = try container.decodeIfPresent(String.self, forKey: .colorTag) ?? "indigo"
+        city = try container.decodeIfPresent(String.self, forKey: .city) ?? ""
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(isStarred, forKey: .isStarred)
+        try container.encode(shifts, forKey: .shifts)
+        try container.encodeIfPresent(pattern, forKey: .pattern)
+        try container.encode(setupType, forKey: .setupType)
+        try container.encode(yearsForward, forKey: .yearsForward)
+        try container.encode(yearsBackward, forKey: .yearsBackward)
+        try container.encode(isMerged, forKey: .isMerged)
+        try container.encode(sourceScheduleIds, forKey: .sourceScheduleIds)
+        try container.encode(colorTag, forKey: .colorTag)
+        try container.encode(city, forKey: .city)
+    }
 }
 
 // MARK: - Schedule Pattern

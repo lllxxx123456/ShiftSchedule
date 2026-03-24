@@ -3,8 +3,7 @@ import SwiftUI
 struct ScheduleListView: View {
     @ObservedObject var viewModel: ScheduleViewModel
     @Binding var selectedTab: Int
-    @State private var showAddSheet = false
-    @State private var showMergeSheet = false
+    @State private var activeSheet: ActiveSheet?
     @State private var newName = ""
     @State private var newCity = ""
     @State private var newSetupType: QuickSetupType = .twoOnTwoOff
@@ -15,9 +14,25 @@ struct ScheduleListView: View {
     @State private var showDeleteAlert = false
     @State private var editCityId: String?
     @State private var editCity = ""
-    @State private var showCityAlert = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+
+    private enum ActiveSheet: Identifiable {
+        case add
+        case merge
+        case city(String)
+
+        var id: String {
+            switch self {
+            case .add:
+                return "add"
+            case .merge:
+                return "merge"
+            case .city(let id):
+                return "city-\(id)"
+            }
+        }
+    }
 
     private let colorOptions: [(String, Color)] = [
         ("indigo", Color(red: 79/255, green: 70/255, blue: 229/255)),
@@ -43,8 +58,16 @@ struct ScheduleListView: View {
             }
             .background(colorScheme == .dark ? Color(red: 0.11, green: 0.11, blue: 0.13) : Color(red: 0.96, green: 0.96, blue: 0.98))
             .navigationTitle("排班表管理")
-            .sheet(isPresented: $showAddSheet) { addSheet }
-            .sheet(isPresented: $showMergeSheet) { mergeSheet }
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .add:
+                    addSheet
+                case .merge:
+                    mergeSheet
+                case .city:
+                    citySheet
+                }
+            }
             .alert("确认删除", isPresented: $showDeleteAlert) {
                 Button("取消", role: .cancel) { deleteTargetId = nil }
                 Button("删除", role: .destructive) {
@@ -55,17 +78,6 @@ struct ScheduleListView: View {
                 }
             } message: {
                 Text("确定要删除这个排班表吗？删除后无法恢复。")
-            }
-            .alert("设置天气城市", isPresented: $showCityAlert) {
-                TextField("城市名称", text: $editCity)
-                Button("取消", role: .cancel) {}
-                Button("确定") {
-                    if let id = editCityId {
-                        viewModel.updateScheduleCity(id: id, city: editCity)
-                    }
-                }
-            } message: {
-                Text("输入该排班表对应的城市名称，用于在日历底部显示天气")
             }
         }
     }
@@ -156,7 +168,7 @@ struct ScheduleListView: View {
                 Button(action: {
                     editCityId = schedule.id
                     editCity = schedule.city
-                    showCityAlert = true
+                    activeSheet = .city(schedule.id)
                 }) {
                     Image(systemName: "mappin.and.ellipse")
                         .font(.system(size: 13))
@@ -165,10 +177,8 @@ struct ScheduleListView: View {
 
                 Button(action: {
                     viewModel.switchToSchedule(schedule.id)
+                    selectedTab = 0
                     dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        selectedTab = 0
-                    }
                 }) {
                     Text("查看")
                         .font(.system(size: 12, weight: .semibold))
@@ -202,7 +212,13 @@ struct ScheduleListView: View {
 
     // MARK: - Add Button
     private var addButton: some View {
-        Button(action: { showAddSheet = true }) {
+        Button(action: {
+            newName = ""
+            newCity = ""
+            newSetupType = .twoOnTwoOff
+            newColorTag = "indigo"
+            activeSheet = .add
+        }) {
             HStack(spacing: 8) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 20))
@@ -224,7 +240,11 @@ struct ScheduleListView: View {
         Group {
             let nonMerged = viewModel.schedules.filter { !$0.isMerged }
             if nonMerged.count >= 2 {
-                Button(action: { showMergeSheet = true }) {
+                Button(action: {
+                    selectedMergeIds = []
+                    mergeName = "汇总排班"
+                    activeSheet = .merge
+                }) {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.triangle.merge")
                             .font(.system(size: 18))
@@ -302,24 +322,61 @@ struct ScheduleListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { showAddSheet = false }
+                    Button("取消") { activeSheet = nil }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") {
                         let name = newName.isEmpty ? (newSetupType == .twoOnTwoOff ? "我的排班" : "TA的排班") : newName
                         viewModel.addSchedule(name: name, setupType: newSetupType, colorTag: newColorTag)
-                        if !newCity.trimmingCharacters(in: .whitespaces).isEmpty,
+                        if !newCity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                            let last = viewModel.schedules.last {
-                            viewModel.updateScheduleCity(id: last.id, city: newCity.trimmingCharacters(in: .whitespaces))
+                            viewModel.updateScheduleCity(id: last.id, city: newCity.trimmingCharacters(in: .whitespacesAndNewlines))
                         }
                         newName = ""
                         newCity = ""
-                        showAddSheet = false
+                        activeSheet = nil
                     }
                 }
             }
         }
         .presentationDetents([.medium])
+    }
+
+    private var citySheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("天气城市")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(colorScheme == .dark ? Color(white: 0.7) : Color(white: 0.3))
+                    TextField("例如：北京", text: $editCity)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 15))
+                    Text("输入该排班表对应的城市名称，用于在日历底部显示天气")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+            .padding(20)
+            .navigationTitle("设置天气城市")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { activeSheet = nil }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        if let id = editCityId {
+                            viewModel.updateScheduleCity(id: id, city: editCity)
+                        }
+                        activeSheet = nil
+                    }
+                }
+            }
+        }
+        .presentationDetents([.fraction(0.28)])
     }
 
     // MARK: - Merge Sheet
@@ -376,13 +433,13 @@ struct ScheduleListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { showMergeSheet = false }
+                    Button("取消") { activeSheet = nil }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("合并") {
                         viewModel.createMergedSchedule(name: mergeName, sourceIds: Array(selectedMergeIds))
                         selectedMergeIds = []
-                        showMergeSheet = false
+                        activeSheet = nil
                     }
                     .disabled(selectedMergeIds.count < 2)
                 }

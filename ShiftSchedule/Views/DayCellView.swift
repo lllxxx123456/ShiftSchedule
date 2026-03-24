@@ -25,7 +25,7 @@ struct DayCellView: View {
 
             if !mergedInfos.isEmpty {
                 VStack(spacing: 1) {
-                    ForEach(Array(mergedInfos.prefix(3).enumerated()), id: \.offset) { _, info in
+                    ForEach(Array(mergedInfos.enumerated()), id: \.offset) { _, info in
                         HStack(spacing: 2) {
                             Circle()
                                 .fill(colorForTag(info.colorTag))
