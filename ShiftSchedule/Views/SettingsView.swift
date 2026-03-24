@@ -9,7 +9,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private enum SettingsSheetType: String, Identifiable {
-        case quickSetup, scheduleList
+        case quickSetup, scheduleList, colorCustomize
         var id: String { rawValue }
     }
 
@@ -38,6 +38,7 @@ struct SettingsView: View {
                     scheduleManageSection
                     widgetSyncSection
                     scheduleSection
+                    colorCustomizeSection
                     yearsSection
                     statsSection
                     dangerSection
@@ -53,6 +54,8 @@ struct SettingsView: View {
                     QuickSetupView(viewModel: viewModel)
                 case .scheduleList:
                     ScheduleListView(viewModel: viewModel, selectedTab: $selectedTab)
+                case .colorCustomize:
+                    ColorCustomizeView(viewModel: viewModel)
                 }
             }
             .overlay(
@@ -234,6 +237,56 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
+            .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
+            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        }
+    }
+
+    // MARK: - Color Customize
+    private var colorCustomizeSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("外观设置")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(sectionTitle)
+                .padding(.leading, 4)
+
+            Button(action: { activeSheet = .colorCustomize }) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(LinearGradient(colors: [Color(red: 236/255, green: 72/255, blue: 153/255), Color(red: 167/255, green: 139/255, blue: 250/255)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "paintpalette.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("自定义颜色")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
+                        Text("设置班次字体、标签、背景颜色")
+                            .font(.system(size: 13))
+                            .foregroundColor(subtitleColor)
+                    }
+
+                    Spacer()
+
+                    let customCount = viewModel.activeSchedule?.shiftTypeColors.count ?? 0
+                    if customCount > 0 {
+                        Text("\(customCount)项自定义")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(subtitleColor)
+                    }
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+                .padding(14)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
             .background(RoundedRectangle(cornerRadius: 14).fill(cardBg))
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         }

@@ -1,6 +1,62 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Color Hex Extension
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 6:
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8:
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+
+    func toHex() -> String {
+        let uiColor = UIColor(self)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+    }
+}
+
+// MARK: - Shift Color Config (自定义颜色配置)
+struct ShiftColorConfig: Codable, Equatable {
+    var textColorHex: String?       // 字体颜色
+    var shiftColorHex: String?      // 班次显示颜色（药丸标签）
+    var bgColorHex: String?         // 日历格子背景颜色
+
+    var textColor: Color? {
+        guard let hex = textColorHex else { return nil }
+        return Color(hex: hex)
+    }
+
+    var shiftColor: Color? {
+        guard let hex = shiftColorHex else { return nil }
+        return Color(hex: hex)
+    }
+
+    var bgColor: Color? {
+        guard let hex = bgColorHex else { return nil }
+        return Color(hex: hex)
+    }
+
+    static let empty = ShiftColorConfig()
+}
+
 // MARK: - Quick Setup Type
 enum QuickSetupType: String, Codable, CaseIterable, Identifiable {
     case twoOnTwoOff = "上二休二"
@@ -21,8 +77,8 @@ enum ShiftType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .fuzhong: return Color(red: 79/255, green: 70/255, blue: 229/255)
         case .kuguang: return Color(red: 234/255, green: 138/255, blue: 56/255)
-        case .work: return Color(red: 59/255, green: 130/255, blue: 246/255)
-        case .rest: return Color(red: 16/255, green: 185/255, blue: 129/255)
+        case .work: return Color(red: 220/255, green: 38/255, blue: 38/255)
+        case .rest: return Color(red: 22/255, green: 163/255, blue: 74/255)
         }
     }
 
@@ -30,7 +86,7 @@ enum ShiftType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .fuzhong: return Color(red: 224/255, green: 231/255, blue: 255/255)
         case .kuguang: return Color(red: 254/255, green: 235/255, blue: 199/255)
-        case .work: return Color(red: 219/255, green: 234/255, blue: 254/255)
+        case .work: return Color(red: 254/255, green: 226/255, blue: 226/255)
         case .rest: return Color(red: 209/255, green: 250/255, blue: 229/255)
         }
     }
@@ -39,8 +95,8 @@ enum ShiftType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .fuzhong: return [Color(red: 79/255, green: 70/255, blue: 229/255), Color(red: 99/255, green: 102/255, blue: 241/255)]
         case .kuguang: return [Color(red: 234/255, green: 138/255, blue: 56/255), Color(red: 251/255, green: 191/255, blue: 36/255)]
-        case .work: return [Color(red: 59/255, green: 130/255, blue: 246/255), Color(red: 96/255, green: 165/255, blue: 250/255)]
-        case .rest: return [Color(red: 16/255, green: 185/255, blue: 129/255), Color(red: 52/255, green: 211/255, blue: 153/255)]
+        case .work: return [Color(red: 220/255, green: 38/255, blue: 38/255), Color(red: 248/255, green: 113/255, blue: 113/255)]
+        case .rest: return [Color(red: 22/255, green: 163/255, blue: 74/255), Color(red: 74/255, green: 222/255, blue: 128/255)]
         }
     }
 
@@ -71,9 +127,10 @@ struct DayShift: Codable, Identifiable, Equatable {
     var endTime: String?
     var location: String?
     var notes: String?
+    var customColors: ShiftColorConfig?
 
     static func == (lhs: DayShift, rhs: DayShift) -> Bool {
-        lhs.id == rhs.id && lhs.shiftType == rhs.shiftType
+        lhs.id == rhs.id && lhs.shiftType == rhs.shiftType && lhs.customColors == rhs.customColors
     }
 }
 
@@ -91,6 +148,7 @@ struct Schedule: Codable, Identifiable {
     var sourceScheduleIds: [String] = []
     var colorTag: String = "indigo"
     var city: String = ""
+    var shiftTypeColors: [String: ShiftColorConfig] = [:]
 
     init(
         id: String = UUID().uuidString,
@@ -104,7 +162,8 @@ struct Schedule: Codable, Identifiable {
         isMerged: Bool = false,
         sourceScheduleIds: [String] = [],
         colorTag: String = "indigo",
-        city: String = ""
+        city: String = "",
+        shiftTypeColors: [String: ShiftColorConfig] = [:]
     ) {
         self.id = id
         self.name = name
@@ -118,6 +177,7 @@ struct Schedule: Codable, Identifiable {
         self.sourceScheduleIds = sourceScheduleIds
         self.colorTag = colorTag
         self.city = city
+        self.shiftTypeColors = shiftTypeColors
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -133,6 +193,7 @@ struct Schedule: Codable, Identifiable {
         case sourceScheduleIds
         case colorTag
         case city
+        case shiftTypeColors
     }
 
     init(from decoder: Decoder) throws {
@@ -149,6 +210,7 @@ struct Schedule: Codable, Identifiable {
         sourceScheduleIds = try container.decodeIfPresent([String].self, forKey: .sourceScheduleIds) ?? []
         colorTag = try container.decodeIfPresent(String.self, forKey: .colorTag) ?? "indigo"
         city = try container.decodeIfPresent(String.self, forKey: .city) ?? ""
+        shiftTypeColors = try container.decodeIfPresent([String: ShiftColorConfig].self, forKey: .shiftTypeColors) ?? [:]
     }
 
     func encode(to encoder: Encoder) throws {
@@ -165,6 +227,7 @@ struct Schedule: Codable, Identifiable {
         try container.encode(sourceScheduleIds, forKey: .sourceScheduleIds)
         try container.encode(colorTag, forKey: .colorTag)
         try container.encode(city, forKey: .city)
+        try container.encode(shiftTypeColors, forKey: .shiftTypeColors)
     }
 }
 

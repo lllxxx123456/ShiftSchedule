@@ -236,7 +236,8 @@ struct CalendarPageView: View {
                             isToday: viewModel.isToday(date),
                             isWeekend: viewModel.isWeekend(date),
                             mergedInfos: mergedInfos,
-                            cellHeight: cellHeight
+                            cellHeight: cellHeight,
+                            scheduleTypeColors: viewModel.activeSchedule?.shiftTypeColors ?? [:]
                         )
                         .onTapGesture {
                             viewModel.selectedDate = date
@@ -274,9 +275,16 @@ struct CalendarPageView: View {
     }
 
     // MARK: - Today Info Card
+    private func resolvedShiftColor(for shift: DayShift) -> Color {
+        if let c = shift.customColors?.shiftColor { return c }
+        if let c = viewModel.activeSchedule?.shiftTypeColors[shift.shiftType.rawValue]?.shiftColor { return c }
+        return shift.shiftType.color
+    }
+
     private var todayInfoCard: some View {
         let today = Date()
         let shift = viewModel.activeShifts[viewModel.dateString(from: today)]
+        let effectiveColor = shift.map { resolvedShiftColor(for: $0) }
 
         return VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -284,7 +292,7 @@ struct CalendarPageView: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: shift?.shiftType.gradientColors ?? [.gray, .gray.opacity(0.7)],
+                                colors: effectiveColor.map { [$0, $0.opacity(0.7)] } ?? [.gray, .gray.opacity(0.7)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -311,7 +319,7 @@ struct CalendarPageView: View {
                 if let shift = shift {
                     Text(shift.shiftType.rawValue)
                         .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .foregroundColor(shift.shiftType.color)
+                        .foregroundColor(resolvedShiftColor(for: shift))
                 } else {
                     Text("未排班")
                         .font(.system(size: 16, weight: .medium))

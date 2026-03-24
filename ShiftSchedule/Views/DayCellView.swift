@@ -7,15 +7,40 @@ struct DayCellView: View {
     let isWeekend: Bool
     var mergedInfos: [MergedDayInfo] = []
     var cellHeight: CGFloat = 68
+    var scheduleTypeColors: [String: ShiftColorConfig] = [:]
     @Environment(\.colorScheme) private var colorScheme
 
     private let calendar = Calendar.current
+
+    // 解析最终颜色：每天自定义 > 排班表级别 > 默认
+    private var resolvedTextColor: Color? {
+        if let c = shift?.customColors?.textColor { return c }
+        if let shift = shift, let c = scheduleTypeColors[shift.shiftType.rawValue]?.textColor { return c }
+        return nil
+    }
+
+    private var resolvedShiftColor: Color? {
+        if let c = shift?.customColors?.shiftColor { return c }
+        if let shift = shift, let c = scheduleTypeColors[shift.shiftType.rawValue]?.shiftColor { return c }
+        return nil
+    }
+
+    private var resolvedBgColor: Color? {
+        if let c = shift?.customColors?.bgColor { return c }
+        if let shift = shift, let c = scheduleTypeColors[shift.shiftType.rawValue]?.bgColor { return c }
+        return nil
+    }
+
+    // 实际使用的班次颜色
+    private var effectiveShiftColor: Color {
+        resolvedShiftColor ?? shift?.shiftType.color ?? .gray
+    }
 
     var body: some View {
         VStack(spacing: 1) {
             Text("\(calendar.component(.day, from: date))")
                 .font(.system(size: 15, weight: isToday ? .heavy : .semibold, design: .rounded))
-                .foregroundColor(isToday ? .white : dayNumberColor)
+                .foregroundColor(isToday ? .white : (resolvedTextColor ?? dayNumberColor))
 
             Text(lunarText)
                 .font(.system(size: 8, weight: .medium))
@@ -41,12 +66,12 @@ struct DayCellView: View {
             } else if let shift = shift {
                 Text(shift.shiftType.rawValue)
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(isToday ? shift.shiftType.color : .white)
+                    .foregroundColor(isToday ? effectiveShiftColor : .white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(
                         Capsule()
-                            .fill(isToday ? .white : shift.shiftType.color)
+                            .fill(isToday ? .white : effectiveShiftColor)
                     )
             } else {
                 Spacer()
@@ -61,16 +86,18 @@ struct DayCellView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(isToday ? .clear : (shift != nil ? shift!.shiftType.color.opacity(0.15) : .clear), lineWidth: 1)
+                .strokeBorder(isToday ? .clear : (shift != nil ? effectiveShiftColor.opacity(0.15) : .clear), lineWidth: 1)
         )
     }
 
     private var backgroundColor: Color {
         if isToday {
-            if let shift = shift {
-                return shift.shiftType.color
-            }
+            if let bgOverride = resolvedBgColor { return bgOverride }
+            if let shift = shift { return effectiveShiftColor }
             return Color(red: 79/255, green: 70/255, blue: 229/255)
+        }
+        if let bgOverride = resolvedBgColor {
+            return bgOverride.opacity(colorScheme == .dark ? 0.35 : 0.5)
         }
         if let shift = shift {
             return shift.shiftType.lightColor.opacity(colorScheme == .dark ? 0.25 : 0.4)

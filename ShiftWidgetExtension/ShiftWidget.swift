@@ -6,6 +6,15 @@ struct ShiftEntry: TimelineEntry {
     let date: Date
     let shifts: [String: DayShift]
     let scheduleName: String
+    let shiftTypeColors: [String: ShiftColorConfig]
+}
+
+extension ShiftEntry {
+    func resolvedShiftColor(for shift: DayShift) -> Color {
+        if let c = shift.customColors?.shiftColor { return c }
+        if let c = shiftTypeColors[shift.shiftType.rawValue]?.shiftColor { return c }
+        return shift.shiftType.color
+    }
 }
 
 // MARK: - Timeline Provider
@@ -13,12 +22,12 @@ struct ShiftWidgetProvider: TimelineProvider {
     private let dataManager = ShiftDataManager.shared
 
     func placeholder(in context: Context) -> ShiftEntry {
-        ShiftEntry(date: Date(), shifts: [:], scheduleName: "排班表")
+        ShiftEntry(date: Date(), shifts: [:], scheduleName: "排班表", shiftTypeColors: [:])
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ShiftEntry) -> Void) {
         let result = loadStarredData()
-        let entry = ShiftEntry(date: Date(), shifts: result.shifts, scheduleName: result.name)
+        let entry = ShiftEntry(date: Date(), shifts: result.shifts, scheduleName: result.name, shiftTypeColors: result.colors)
         completion(entry)
     }
 
@@ -28,20 +37,25 @@ struct ShiftWidgetProvider: TimelineProvider {
         let startOfToday = calendar.startOfDay(for: Date())
         let entries = (0..<30).compactMap { offset -> ShiftEntry? in
             guard let date = calendar.date(byAdding: .day, value: offset, to: startOfToday) else { return nil }
-            return ShiftEntry(date: date, shifts: result.shifts, scheduleName: result.name)
+            return ShiftEntry(date: date, shifts: result.shifts, scheduleName: result.name, shiftTypeColors: result.colors)
         }
         let nextRefresh = calendar.date(byAdding: .day, value: 30, to: startOfToday) ?? Date()
         let timeline = Timeline(entries: entries, policy: .after(nextRefresh))
         completion(timeline)
     }
 
-    private func loadStarredData() -> (shifts: [String: DayShift], name: String) {
+    private func loadStarredData() -> (shifts: [String: DayShift], name: String, colors: [String: ShiftColorConfig]) {
         let schedules = dataManager.loadSchedules()
-        if !schedules.isEmpty {
-            let target = schedules.first(where: { $0.isStarred }) ?? schedules.first!
-            return (target.shifts, target.name)
+        let info = dataManager.loadWidgetInfo()
+        let starredSchedule = schedules.first(where: { $0.isStarred }) ?? schedules.first
+        let colors = starredSchedule?.shiftTypeColors ?? [:]
+        if !info.shifts.isEmpty {
+            return (info.shifts, info.name, colors)
         }
-        return dataManager.loadWidgetInfo()
+        if let target = starredSchedule {
+            return (target.shifts, target.name, colors)
+        }
+        return ([:], "排班表", [:])
     }
 }
 
@@ -72,6 +86,7 @@ struct SmallWidgetView: View {
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "zh_CN")
         return f
     }()
 
@@ -139,6 +154,7 @@ struct MediumWidgetView: View {
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "zh_CN")
         return f
     }()
 
@@ -192,7 +208,7 @@ struct MediumWidgetView: View {
                         if let shift = shift {
                             Text(shift.shiftType.rawValue)
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(shift.shiftType.color)
+                                .foregroundColor(entry.resolvedShiftColor(for: shift))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
                                 .background(.white)
@@ -233,13 +249,14 @@ struct MediumWidgetView: View {
     }
 }
 
-// MARK: - Large Widget (4 weeks + today/tomorrow info)
+// MARK: - Large Widget
 struct LargeWidgetView: View {
     let entry: ShiftEntry
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "zh_CN")
         return f
     }()
 
@@ -251,53 +268,47 @@ struct LargeWidgetView: View {
         let weekday = calendar.component(.weekday, from: today)
         let startOfWeek = calendar.date(byAdding: .day, value: -(weekday - 1), to: today) ?? today
         let allDates = (0..<28).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
-        let week1 = Array(allDates[0..<7])
-        let week2 = Array(allDates[7..<14])
-        let week3 = Array(allDates[14..<21])
-        let week4 = Array(allDates[21..<28])
 
         let todayShift = entry.shifts[dateFormatter.string(from: today)]
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
         let tomorrowShift = entry.shifts[dateFormatter.string(from: tomorrow)]
 
         VStack(spacing: 0) {
-            HStack {
-                Text(entry.scheduleName)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                Spacer()
-                Text(monthYearString(today))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.85))
-            }
-            .padding(.bottom, 4)
+            // 顶部：居中排班表名称
+            Text(entry.scheduleName)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, 5)
 
+            // 星期表头
             HStack(spacing: 0) {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { index, day in
                     Text(day)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(index == 0 || index == 6 ? .white.opacity(0.6) : .white.opacity(0.85))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(index == 0 || index == 6 ? .white.opacity(0.55) : .white.opacity(0.85))
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.bottom, 2)
+            .padding(.bottom, 4)
 
-            weekRow(week1, calendar: calendar)
-            weekRow(week2, calendar: calendar)
-            weekRow(week3, calendar: calendar)
-            weekRow(week4, calendar: calendar)
+            // 4 行日历
+            ForEach(0..<4, id: \.self) { weekIndex in
+                let weekDates = Array(allDates[(weekIndex * 7)..<(weekIndex * 7 + 7)])
+                largeWeekRow(weekDates, calendar: calendar)
+            }
 
-            Spacer(minLength: 2)
-
+            // 分割线
             Rectangle()
                 .fill(.white.opacity(0.15))
                 .frame(height: 1)
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
 
+            // 底部：今天 / 明天
             HStack(spacing: 0) {
                 HStack(spacing: 6) {
                     Image(systemName: todayShift?.shiftType.icon ?? "calendar")
-                        .font(.system(size: 18))
+                        .font(.system(size: 16))
                         .foregroundColor(.white)
 
                     VStack(alignment: .leading, spacing: 0) {
@@ -305,7 +316,7 @@ struct LargeWidgetView: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.white.opacity(0.7))
                         Text(todayShift?.shiftType.rawValue ?? "未排班")
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
 
@@ -313,7 +324,7 @@ struct LargeWidgetView: View {
 
                     if let shift = todayShift, let start = shift.startTime, let end = shift.endTime {
                         Text("\(start)-\(end)")
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.8))
                     }
                 }
@@ -321,28 +332,28 @@ struct LargeWidgetView: View {
 
                 Rectangle()
                     .fill(.white.opacity(0.2))
-                    .frame(width: 1, height: 30)
+                    .frame(width: 1, height: 28)
                     .padding(.horizontal, 6)
 
                 HStack(spacing: 6) {
                     Image(systemName: tomorrowShift?.shiftType.icon ?? "calendar")
-                        .font(.system(size: 18))
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.85))
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text("明天")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.white.opacity(0.7))
                         Text(tomorrowShift?.shiftType.rawValue ?? "未排班")
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.9))
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.95))
                     }
 
                     Spacer()
 
                     if let shift = tomorrowShift, let start = shift.startTime, let end = shift.endTime {
                         Text("\(start)-\(end)")
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.7))
                     }
                 }
@@ -351,13 +362,14 @@ struct LargeWidgetView: View {
             .padding(.horizontal, 2)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
         .containerBackground(for: .widget) {
             LinearGradient(
                 colors: [
                     Color(red: 79/255, green: 70/255, blue: 229/255),
-                    Color(red: 129/255, green: 100/255, blue: 255/255),
-                    Color(red: 167/255, green: 139/255, blue: 250/255)
+                    Color(red: 109/255, green: 90/255, blue: 245/255),
+                    Color(red: 139/255, green: 115/255, blue: 252/255)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -365,53 +377,65 @@ struct LargeWidgetView: View {
         }
     }
 
-    private func weekRow(_ dates: [Date], calendar: Calendar) -> some View {
-        HStack(spacing: 2) {
+    private func largeWeekRow(_ dates: [Date], calendar: Calendar) -> some View {
+        HStack(spacing: 3) {
             ForEach(Array(dates.enumerated()), id: \.offset) { _, date in
                 let key = dateFormatter.string(from: date)
                 let shift = entry.shifts[key]
                 let isToday = calendar.isDateInToday(date)
                 let dayNum = calendar.component(.day, from: date)
 
-                VStack(spacing: 2) {
+                VStack(spacing: 3) {
                     Text("\(dayNum)")
-                        .font(.system(size: 14, weight: isToday ? .heavy : .semibold, design: .rounded))
+                        .font(.system(size: 17, weight: isToday ? .heavy : .medium, design: .rounded))
                         .foregroundColor(.white)
 
                     if let shift = shift {
                         Text(shift.shiftType.rawValue)
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(shift.shiftType.color)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(.white)
-                            .clipShape(Capsule())
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(shiftTextColor(shift))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 3)
+                            .background(shiftBgColor(shift))
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
                     } else {
-                        Color.clear.frame(height: 13)
+                        Text(" ")
+                            .font(.system(size: 12))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 3)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 3)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.vertical, 2)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(isToday ? .white.opacity(0.2) : .clear)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isToday ? .white.opacity(0.18) : .clear)
                 )
             }
         }
+        .frame(maxHeight: .infinity)
     }
 
-    private func monthYearString(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy年M月"
-        f.locale = Locale(identifier: "zh_CN")
-        return f.string(from: date)
+    private func shiftTextColor(_ shift: DayShift) -> Color {
+        if let c = shift.customColors?.shiftColor { return c }
+        if let c = entry.shiftTypeColors[shift.shiftType.rawValue]?.shiftColor { return c }
+        switch shift.shiftType {
+        case .fuzhong: return Color(red: 79/255, green: 70/255, blue: 229/255)
+        case .kuguang: return Color(red: 194/255, green: 100/255, blue: 20/255)
+        case .work: return Color(red: 180/255, green: 30/255, blue: 30/255)
+        case .rest: return Color(red: 16/255, green: 130/255, blue: 60/255)
+        }
     }
 
-    private func todayDateString(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日"
-        f.locale = Locale(identifier: "zh_CN")
-        return f.string(from: date)
+    private func shiftBgColor(_ shift: DayShift) -> Color {
+        if let c = shift.customColors?.bgColor { return c }
+        if let c = entry.shiftTypeColors[shift.shiftType.rawValue]?.bgColor { return c }
+        switch shift.shiftType {
+        case .fuzhong: return Color(red: 224/255, green: 221/255, blue: 255/255)
+        case .kuguang: return Color(red: 255/255, green: 230/255, blue: 190/255)
+        case .work: return Color(red: 254/255, green: 226/255, blue: 226/255)
+        case .rest: return Color(red: 200/255, green: 245/255, blue: 220/255)
+        }
     }
 }
 

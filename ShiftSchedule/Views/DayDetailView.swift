@@ -11,6 +11,7 @@ struct DayDetailView: View {
     @State private var endTime: Date = Calendar.current.date(from: DateComponents(hour: 21, minute: 0)) ?? Date()
     @State private var location: String = ""
     @State private var notes: String = ""
+    @State private var showColorEditor = false
 
     private let calendar = Calendar.current
     private let timeFormatter: DateFormatter = {
@@ -61,6 +62,9 @@ struct DayDetailView: View {
                 }
             }
             .onAppear { loadExistingShift() }
+            .sheet(isPresented: $showColorEditor) {
+                DayColorEditorView(viewModel: viewModel, date: date)
+            }
         }
     }
 
@@ -261,6 +265,23 @@ struct DayDetailView: View {
     // MARK: - Action Buttons
     private var actionButtons: some View {
         VStack(spacing: 10) {
+            if viewModel.activeShifts[viewModel.dateString(from: date)] != nil {
+                Button(action: { showColorEditor = true }) {
+                    HStack {
+                        Image(systemName: "paintpalette.fill")
+                        Text("自定义颜色")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .foregroundColor(Color(red: 79/255, green: 70/255, blue: 229/255))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(red: 79/255, green: 70/255, blue: 229/255).opacity(0.08))
+                    )
+                }
+            }
+
             Button(action: saveShift) {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
@@ -324,13 +345,15 @@ struct DayDetailView: View {
 
     private func saveShift() {
         let key = viewModel.dateString(from: date)
+        let existingCustomColors = viewModel.activeShifts[key]?.customColors
         let shift = DayShift(
             id: key,
             shiftType: shiftType,
             startTime: shiftType != .rest ? timeFormatter.string(from: startTime) : nil,
             endTime: shiftType != .rest ? timeFormatter.string(from: endTime) : nil,
             location: location.isEmpty ? nil : location,
-            notes: notes.isEmpty ? nil : notes
+            notes: notes.isEmpty ? nil : notes,
+            customColors: existingCustomColors
         )
         viewModel.saveShift(shift)
         dismiss()

@@ -12,10 +12,23 @@ class ShiftDataManager {
     private let schedulesKey = "savedSchedules"
     private let widgetShiftsKey = "widgetShifts"
     private let widgetSnapshotKey = "widgetSnapshot"
+    private let widgetFileName = "widget_snapshot.json"
 
-    private var userDefaults: UserDefaults {
-        UserDefaults(suiteName: suiteName) ?? UserDefaults.standard
+    private let sharedDefaults: UserDefaults
+
+    private var containerURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName)
     }
+
+    private var widgetFileURL: URL? {
+        containerURL?.appendingPathComponent(widgetFileName)
+    }
+
+    init() {
+        self.sharedDefaults = UserDefaults(suiteName: "group.com.myshift.schedule") ?? UserDefaults.standard
+    }
+
+    private var userDefaults: UserDefaults { sharedDefaults }
 
     let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -42,9 +55,17 @@ class ShiftDataManager {
     }
 
     func loadSchedules() -> [Schedule] {
-        let data = userDefaults.data(forKey: schedulesKey) ?? UserDefaults.standard.data(forKey: schedulesKey)
-        guard let data = data else { return [] }
-        return (try? JSONDecoder().decode([Schedule].self, from: data)) ?? []
+        if let data = userDefaults.data(forKey: schedulesKey),
+           let schedules = try? JSONDecoder().decode([Schedule].self, from: data),
+           !schedules.isEmpty {
+            return schedules
+        }
+        if let data = UserDefaults.standard.data(forKey: schedulesKey),
+           let schedules = try? JSONDecoder().decode([Schedule].self, from: data),
+           !schedules.isEmpty {
+            return schedules
+        }
+        return []
     }
 
     func syncWidgetData(_ schedules: [Schedule]) {
@@ -53,50 +74,76 @@ class ShiftDataManager {
             userDefaults.set(allData, forKey: schedulesKey)
         }
 
-        // 写入星标排班快照供 Widget 快速访问
+        // 确定星标排班表
         let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
         if let target = target {
+            // 写入星标排班 shifts
             if let data = try? JSONEncoder().encode(target.shifts) {
                 userDefaults.set(data, forKey: widgetShiftsKey)
             }
+            // 写入快照到 UserDefaults + 文件双通道
             let snapshot = WidgetSnapshot(name: target.name, shifts: target.shifts)
             if let snapshotData = try? JSONEncoder().encode(snapshot) {
                 userDefaults.set(snapshotData, forKey: widgetSnapshotKey)
+                if let fileURL = widgetFileURL {
+                    try? snapshotData.write(to: fileURL, options: .atomic)
+                }
             }
         } else {
             userDefaults.removeObject(forKey: widgetShiftsKey)
             userDefaults.removeObject(forKey: widgetSnapshotKey)
+            if let fileURL = widgetFileURL {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
         }
 
         userDefaults.synchronize()
     }
 
     func loadWidgetShifts() -> [String: DayShift] {
+        // 1. UserDefaults 快照
         if let snapshotData = userDefaults.data(forKey: widgetSnapshotKey),
            let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: snapshotData),
            !snapshot.shifts.isEmpty {
             return snapshot.shifts
         }
-
+        // 2. UserDefaults shifts
         if let data = userDefaults.data(forKey: widgetShiftsKey),
            let shifts = try? JSONDecoder().decode([String: DayShift].self, from: data),
            !shifts.isEmpty {
             return shifts
         }
+        // 3. 文件快照
+        if let fileURL = widgetFileURL,
+           let data = try? Data(contentsOf: fileURL),
+           let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: data),
+           !snapshot.shifts.isEmpty {
+            return snapshot.shifts
+        }
+        // 4. 全量排班表
         let schedules = loadSchedules()
         let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
         return target?.shifts ?? [:]
     }
 
     func loadWidgetInfo() -> (shifts: [String: DayShift], name: String) {
+        // 1. UserDefaults 快照
         if let snapshotData = userDefaults.data(forKey: widgetSnapshotKey),
-           let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: snapshotData) {
+           let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: snapshotData),
+           !snapshot.shifts.isEmpty {
             return (snapshot.shifts, snapshot.name)
         }
-
+        // 2. 文件快照
+        if let fileURL = widgetFileURL,
+           let data = try? Data(contentsOf: fileURL),
+           let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: data),
+           !snapshot.shifts.isEmpty {
+            return (snapshot.shifts, snapshot.name)
+        }
+        // 3. 全量排班表
         let schedules = loadSchedules()
         let target = schedules.first(where: { $0.isStarred }) ?? schedules.first
-        let shifts = target?.shifts ?? loadWidgetShifts()
+        let shifts = target?.shifts ?? [:]
         let name = target?.name ?? "排班表"
         return (shifts, name)
     }
